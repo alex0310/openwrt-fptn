@@ -8,7 +8,6 @@ PKG_SOURCE:=protobuf-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://github.com?
 PKG_HASH:=a191d2afdd75997ba59f62019425016703daed356a9d92f7425f4741439ae544
 
-# Задаем имена ваших скачанных архивов Abseil и GTest
 ABSL_SOURCE:=abseil-cpp-20240722.0.tar.gz
 GTEST_SOURCE:=googletest-1.15.2.tar.gz
 
@@ -18,6 +17,21 @@ PKG_LICENSE:=BSD-3-Clause
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/cmake.mk
+
+define Download/abseil
+  FILE:=$(ABSL_SOURCE)
+  URL:=https://github.com/abseil/abseil-cpp/releases/download/20240722.0/
+  HASH:=f50e5ac311a81382da7fa75b97310e4b9006474f9560ac46f54a9967f07d4ae3
+endef
+
+define Download/googletest
+  FILE:=$(GTEST_SOURCE)
+  URL:=https://github.com/google/googletest/releases/download/v1.15.2/
+  HASH:=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926
+endef
+
+$(eval $(call Download,abseil))
+$(eval $(call Download,googletest))
 
 # Направляем сборщик в правильную корневую папку Protobuf
 HOST_BUILD_DIR:=$(BUILD_DIR_HOST)/protobuf-$(PKG_VERSION)
