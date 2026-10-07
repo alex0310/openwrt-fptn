@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OPENWRT_COMMIT: 3cdb8b59d9aa7569b3b9ae6df5f1b05ce93b50d2
+
+jobs:
+  build:
+    name: Build packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout overlay
+        uses: actions/checkout@v6
+
+      - name: Checkout OpenWrt
+        uses: actions/checkout@v6
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ env.OPENWRT_COMMIT }}
+          path: openwrt
+          fetch-depth: 1
+
+      - name: Allow git in CI
+        run: git config --global --add safe.directory '*'
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Overlay packages into OpenWrt tree
+        run: cp -a package/. openwrt/package/
+
+      - name: Update feeds
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure
+        working-directory: openwrt
+        run: |
+          cp ../ci.config .config
+          make defconfig
+
+      - name: Check tag matches PKG_VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          pkg=$(sed -n 's/^PKG_VERSION:=//p' package/openwrt-fptn/fptn-client/Makefile)
+          tag=${GITHUB_REF_NAME#v}
+          echo "tag=$tag PKG_VERSION=$pkg"
+          [ "$tag" = "$pkg" ]
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: openwrt/dl
+          key: dl-${{ env.OPENWRT_COMMIT }}-${{ hashFiles('package/**/Makefile') }}
+          restore-keys: |
+            dl-${{ env.OPENWRT_COMMIT }}-
+            dl-
+
+      - name: Build toolchain
+        working-directory: openwrt
+        run: |
+          make tools/install -j"$(nproc)"
+          make toolchain/install -j"$(nproc)"
+
+      - name: Build packages
+        working-directory: openwrt
+        run: |
+          make package/openwrt-fptn/fptn-client/compile -j"$(nproc)"
+          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)"
+
+      - name: Collect artifacts
+        run: |
+          set -eu
+          mkdir -p dist
+          find openwrt/bin/packages -name 'fptn-client-*.apk' -o -name 'luci-app-fptn-*.apk' > files.txt
+          cat files.txt
+          [ -s files.txt ]
+          xargs -a files.txt -I{} cp {} dist/
+          ls -la dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-packages
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.apk --title "$GITHUB_REF_NAME" --generate-notes
+          fi

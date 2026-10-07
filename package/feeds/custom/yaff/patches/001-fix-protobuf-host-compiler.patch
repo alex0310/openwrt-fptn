@@ -1,0 +1,23 @@
+Index: yaff-0.1.0/include/yaff/proto/CMakeLists.txt
+===================================================================
+--- yaff-0.1.0.orig/include/yaff/proto/CMakeLists.txt
++++ yaff-0.1.0/include/yaff/proto/CMakeLists.txt
+@@ -8,6 +8,7 @@ protobuf_generate(
+     PROTOS ${YAFF_PROTO_OPTIONS}
+     IMPORT_DIRS ${YAFF_PROTO_IMPORT_DIR}
+     PROTOC_OUT_DIR ${YAFF_PROTO_GENERATED_DIR}
++    PROTOC_EXE "$ENV{STAGING_DIR_HOSTPKG}/bin/protoc"
+ )
+ 
+ add_library(yaff_proto STATIC ${YAFF_PROTO_GENERATED_FILES})
+Index: yaff-0.1.0/src/compilation/error.h
+===================================================================
+--- yaff-0.1.0.orig/src/compilation/error.h
++++ yaff-0.1.0/src/compilation/error.h
+@@ -1,5 +1,5 @@
+ #pragma once
+-
++#include <cstdint>
+ #include <string>
+ 
+ namespace yaff::compilation {

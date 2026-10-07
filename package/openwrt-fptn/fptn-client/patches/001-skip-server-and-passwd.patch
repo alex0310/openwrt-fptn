@@ -1,0 +1,26 @@
+--- a/CMakeLists.txt	2026-10-01 19:56:12.909790051 +0500
++++ b/CMakeLists.txt	2026-10-01 19:56:12.921790047 +0500
+@@ -166,8 +166,6 @@
+ add_subdirectory(src/fptn-protocol-lib)
+ if (NOT FPTN_BUILD_ONLY_FPTN_LIB)
+     if (APPLE OR UNIX)
+-        add_subdirectory(src/fptn-server)
+-        add_subdirectory(src/fptn-passwd)
+     endif ()
+     add_subdirectory(src/fptn-client)
+     if (FPTN_OPENWRT)
+@@ -176,8 +174,6 @@
+     # --- install ---
+     install(TARGETS fptn-client-cli DESTINATION bin)
+     if (APPLE OR UNIX)
+-        install(TARGETS fptn-server DESTINATION bin)
+-        install(TARGETS fptn-passwd DESTINATION bin)
+     endif ()
+     # --- packaging ---
+     if (CMAKE_SYSTEM_NAME STREQUAL "Linux") # deb
+@@ -248,5 +244,4 @@
+     endif ()
+     # --- tests ---
+     enable_testing()
+-    add_subdirectory(tests)
+ endif ()

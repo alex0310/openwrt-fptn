@@ -1,0 +1,17 @@
+--- a/src/fptn-protocol-lib/CMakeLists.txt
++++ b/src/fptn-protocol-lib/CMakeLists.txt
+@@ -163,12 +163,12 @@
+     )
+   endif()
+ 
+-  target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::protobuf)
++  target_include_directories(${target} INTERFACE ${CMAKE_CURRENT_BINARY_DIR} protobuf::libprotobuf)
+   target_link_libraries(
+     ${target}
+     ${Protobuf_LIBRARIES}
+     ${protobuf_LIBRARIES}
+-    protobuf::protobuf
++    protobuf::libprotobuf
+     yaff::core
+     yaff::proto
+     ZLIB::ZLIB
