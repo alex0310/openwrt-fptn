@@ -85,6 +85,12 @@ jobs:
           make tools/install -j"$(nproc)"
           make toolchain/install -j"$(nproc)"
 
+      - name: Build kernel
+        working-directory: openwrt
+        run: |
+          make target/linux/compile -j"$(nproc)"
+          make package/kernel/linux/compile -j"$(nproc)"
+
       - name: Build packages
         working-directory: openwrt
         run: |
