@@ -5,7 +5,7 @@ PKG_VERSION:=29.5
 PKG_RELEASE:=1
 
 PKG_SOURCE:=protobuf-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://github.com?
+PKG_SOURCE_URL:=https://github.com/protocolbuffers/protobuf/releases/download/v29.5/
 PKG_HASH:=a191d2afdd75997ba59f62019425016703daed356a9d92f7425f4741439ae544
 
 ABSL_SOURCE:=abseil-cpp-20240722.0.tar.gz

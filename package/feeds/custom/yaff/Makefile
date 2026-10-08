@@ -4,10 +4,9 @@ PKG_NAME:=yaff
 PKG_VERSION:=0.1.0
 PKG_RELEASE:=1
 
-PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com
-PKG_SOURCE_VERSION:=0127f02ed2fcbb8868774f3b96e6b6331aa4f7ef
-PKG_MIRROR_HASH:=49a4187769d332508ccd7b92e4617c3bfc8eb1644eabd0ddd8daaff7471c601e
+PKG_SOURCE:=yaff-$(PKG_VERSION).tar.zst
+PKG_SOURCE_URL:=https://github.com/alex0310/openwrt-fptn/releases/download/openwrt-sources
+PKG_HASH:=49a4187769d332508ccd7b92e4617c3bfc8eb1644eabd0ddd8daaff7471c601e
 
 PKG_MAINTAINER:=Embedded Developer <dev@example.com>
 PKG_LICENSE:=Apache-2.0
