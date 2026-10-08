@@ -90,16 +90,13 @@ jobs:
         run: |
           make target/linux/compile -j"$(nproc)"
           make package/kernel/linux/compile -j"$(nproc)"
-          make package/kernel/linux/install -j"$(nproc)"
 
       - name: Build packages
         working-directory: openwrt
         run: |
           make package/openwrt-fptn/fptn-client/compile -j"$(nproc)" V=sc
-          make package/openwrt-fptn/fptn-client/install -j"$(nproc)" V=sc
           make package/openwrt-fptn/fptn-client-slim/compile -j"$(nproc)" V=sc
-          make package/openwrt-fptn/fptn-client-slim/install -j"$(nproc)" V=sc
-          make package/openwrt-fptn/luci-app-fptn/install -j"$(nproc)" V=sc
+          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
 
       - name: Collect artifacts
         run: |
