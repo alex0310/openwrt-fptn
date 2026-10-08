@@ -18,6 +18,9 @@ include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/cmake.mk
 
+# Направляем сборщик в правильную корневую папку Protobuf
+HOST_BUILD_DIR:=$(BUILD_DIR_HOST)/protobuf-$(PKG_VERSION)
+
 define Download/abseil
   FILE:=$(ABSL_SOURCE)
   URL:=https://github.com/abseil/abseil-cpp/releases/download/20240722.0/
@@ -32,9 +35,6 @@ endef
 
 $(eval $(call Download,abseil))
 $(eval $(call Download,googletest))
-
-# Направляем сборщик в правильную корневую папку Protobuf
-HOST_BUILD_DIR:=$(BUILD_DIR_HOST)/protobuf-$(PKG_VERSION)
 
 # ЧЕСТНАЯ И ПОЛНАЯ СБОРКА: Включаем все тесты, конформансы и экспорт для Protobuf и Abseil
 HOST_CMAKE_OPTIONS += \
