@@ -13,7 +13,7 @@ PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
 
 # Ссылаемся на ваш специфичный хостовый пакет protobuf29
-PKG_BUILD_DEPENDS:=protobuf29/host
+PKG_BUILD_DEPENDS:=protobuf29/host protobuf
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk

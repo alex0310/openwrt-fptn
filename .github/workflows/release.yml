@@ -53,6 +53,8 @@ jobs:
         working-directory: openwrt
         run: |
           ./scripts/feeds update -a
+          sed -i 's/PKG_BUILD_FLAGS:=no-mips16 gc-sections lto/PKG_BUILD_FLAGS:=no-mips16 gc-sections/' feeds/packages/libs/boost/Makefile
+          ! grep -q "PKG_BUILD_FLAGS:=.*\blto\b" feeds/packages/libs/boost/Makefile
           ./scripts/feeds install -a
 
       - name: Configure

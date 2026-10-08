@@ -19,10 +19,12 @@ PKG_MAINTAINER:=developed by volunteers
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DEPENDS:=protobuf29/host yaff boringssl argparse libfmt spdlog brotli
+PKG_BUILD_DEPENDS:=protobuf29/host yaff boringssl argparse libfmt spdlog brotli boost icu libre2 libidn2 nlohmannjson protobuf zlib
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
+
+TARGET_LDFLAGS += -Wl,-rpath-link,$(STAGING_DIR)/usr/lib
 
 define Package/fptn-client
   SECTION:=net
