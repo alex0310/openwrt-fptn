@@ -5,7 +5,7 @@ PKG_VERSION:=0.20260813.0
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://github.com
+PKG_SOURCE_URL:=https://github.com/alex0310/openwrt-fptn/releases/download/boringssl-src
 PKG_HASH:=37e23cb9a5fa54f01b07cadd653cebc1d1b235945439a6c334fea58ea47b5b0a
 PKG_BUILD_DIR:=$(BUILD_DIR)/boringssl-$(PKG_VERSION)
 
