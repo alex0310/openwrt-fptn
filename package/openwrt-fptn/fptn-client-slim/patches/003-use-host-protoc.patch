@@ -1,0 +1,37 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -162,6 +162,13 @@
+ # --- include ---
+ include_directories(src/)
+ 
++if(TARGET protobuf::protoc AND DEFINED ENV{STAGING_DIR_HOSTPKG})
++    set_target_properties(protobuf::protoc PROPERTIES
++        IMPORTED_LOCATION "$ENV{STAGING_DIR_HOSTPKG}/bin/protoc"
++        IMPORTED_LOCATION_RELEASE "$ENV{STAGING_DIR_HOSTPKG}/bin/protoc"
++    )
++endif()
++
+ # --- build ---
+ add_subdirectory(src/fptn-protocol-lib)
+ if (NOT FPTN_BUILD_ONLY_FPTN_LIB)
+--- a/src/fptn-protocol-lib/CMakeLists.txt
++++ b/src/fptn-protocol-lib/CMakeLists.txt
+@@ -25,6 +25,18 @@
+ 
+ find_package(absl REQUIRED)
+ find_package(protobuf REQUIRED)
++if(DEFINED ENV{STAGING_DIR_HOSTPKG})
++    set(_fptn_host_protoc "$ENV{STAGING_DIR_HOSTPKG}/bin/protoc")
++    set(Protobuf_PROTOC_EXECUTABLE "${_fptn_host_protoc}" CACHE FILEPATH "Host protoc" FORCE)
++    set(protobuf_generate_PROTOC_EXE "${_fptn_host_protoc}")
++    if(TARGET protobuf::protoc)
++        set_target_properties(protobuf::protoc PROPERTIES
++            IMPORTED_LOCATION "${_fptn_host_protoc}"
++            IMPORTED_LOCATION_RELEASE "${_fptn_host_protoc}"
++            IMPORTED_LOCATION_NOCONFIG "${_fptn_host_protoc}"
++        )
++    endif()
++endif()
+ find_package(OpenSSL REQUIRED)
+ find_package(spdlog REQUIRED)
+ find_package(fmt REQUIRED)
