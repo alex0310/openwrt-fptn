@@ -94,8 +94,9 @@ jobs:
       - name: Build packages
         working-directory: openwrt
         run: |
-          make package/openwrt-fptn/fptn-client/compile -j"$(nproc)"
-          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)"
+          make package/openwrt-fptn/fptn-client/install -j"$(nproc)"
+          make package/openwrt-fptn/fptn-client-slim/install -j"$(nproc)"
+          make package/openwrt-fptn/luci-app-fptn/install -j"$(nproc)"
 
       - name: Collect artifacts
         run: |
