@@ -19,7 +19,7 @@ PKG_MAINTAINER:=developed by volunteers
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DEPENDS:=protobuf29/host yaff boringssl argparse libfmt spdlog brotli boost icu libre2 libidn2 nlohmannjson protobuf zlib
+PKG_BUILD_DEPENDS:=protobuf29/host yaff boringssl argparse libfmt spdlog brotli boost icu libre2 libidn2 nlohmannjson protobuf zlib googletest
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
