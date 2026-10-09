@@ -25,6 +25,8 @@ jobs:
             config: ci-mediatek.config
           - name: ipq40xx
             config: ci-ipq40xx.config
+          - name: ramips
+            config: ci-ramips.config
 
     steps:
       - name: Checkout overlay
@@ -55,6 +57,8 @@ jobs:
           ./scripts/feeds update -a
           sed -i 's/PKG_BUILD_FLAGS:=no-mips16 gc-sections lto/PKG_BUILD_FLAGS:=no-mips16 gc-sections/' feeds/packages/libs/boost/Makefile
           ! grep -q "PKG_BUILD_FLAGS:=.*\blto\b" feeds/packages/libs/boost/Makefile
+          sed -i 's/$(if $(CONFIG_PACKAGE_boost-locale),boost.locale.std=off boost.locale.posix=off)/$(if $(CONFIG_PACKAGE_boost-locale),boost.locale.icu=off boost.locale.std=on boost.locale.posix=on)/' feeds/packages/libs/boost/Makefile
+          grep -q 'boost.locale.icu=off' feeds/packages/libs/boost/Makefile
           ./scripts/feeds install -a
 
       - name: Configure
