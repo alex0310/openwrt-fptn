@@ -143,8 +143,9 @@ jobs:
         run: |
           set -eu
           ls -la dist
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.apk --clobber
+          repo="$GITHUB_REPOSITORY"
+          if gh release view "$GITHUB_REF_NAME" --repo "$repo" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk --repo "$repo" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.apk --title "$GITHUB_REF_NAME" --generate-notes
+            gh release create "$GITHUB_REF_NAME" dist/*.apk --repo "$repo" --title "$GITHUB_REF_NAME" --generate-notes
           fi
