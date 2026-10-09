@@ -108,9 +108,13 @@ jobs:
         working-directory: openwrt
         run: |
           grep -q '^CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y$' .config || exit 0
+          sed -i -e 's/^CONFIG_PACKAGE_boost=.*/# CONFIG_PACKAGE_boost is not set/' \
+                 -e 's/^CONFIG_PACKAGE_googletest=.*/# CONFIG_PACKAGE_googletest is not set/' .config
+          make defconfig
           make -j"$(nproc)" V=sc
           echo "=== built images ==="
           find bin/targets/ramips/mt76x8 -maxdepth 1 -type f -name '*xiaomi_mi-router-4c*' -exec ls -la {} \;
+          [ -n "$(find bin/targets/ramips/mt76x8 -maxdepth 1 -type f -name '*squashfs-sysupgrade.bin')" ] || { echo 'ERROR: sysupgrade image missing' >&2; exit 1; }
 
       - name: Collect artifacts
         run: |
