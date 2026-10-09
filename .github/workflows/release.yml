@@ -118,21 +118,46 @@ jobs:
           arch=$(sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\(.*\)"/\1/p' openwrt/.config)
           echo "arch=$arch"
           [ -n "$arch" ]
+          pkgver=$(sed -n 's/^PKG_VERSION:=//p' package/openwrt-fptn/fptn-client/Makefile)
+          echo "pkgver=$pkgver"
           mkdir -p dist
-          find openwrt/bin/packages -name 'fptn-client-*.apk' -o -name 'luci-app-fptn-*.apk' > files.txt
+          find openwrt/bin/packages \( -name 'fptn-client-*.apk' -o -name 'luci-app-fptn-*.apk' \) > files.txt
           cat files.txt
           [ -s files.txt ]
           while read -r f; do
             base=$(basename "$f")
             cp "$f" "dist/${base%.apk}_${arch}.apk"
           done < files.txt
+          # реальные unpacked-размеры (для проверки места на роутере)
+          : > dist/sizes.txt
+          if [ -x openwrt/staging_dir/host/bin/apk ]; then
+            for a in dist/*.apk; do
+              [ -e "$a" ] || continue
+              t=$(mktemp -d)
+              ( cd "$t" && "$GITHUB_WORKSPACE/openwrt/staging_dir/host/bin/apk" --allow-untrusted extract --no-chown "$GITHUB_WORKSPACE/$a" >/dev/null 2>&1 )
+              sz=$(find "$t" -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}')
+              printf '%s %s\n' "$(basename "$a")" "$sz" >> dist/sizes.txt
+              rm -rf "$t"
+            done
+          fi
+          cat dist/sizes.txt
+          # zip на архитектуру: fptn-<ver>-<arch>.zip (apk + sizes.txt)
+          zipfiles="sizes.txt"
+          for f in dist/*.apk; do
+            [ -e "$f" ] || continue
+            zipfiles="$zipfiles $(basename "$f")"
+          done
+          ( cd dist && python3 -m zipfile -c "fptn-${pkgver}-${arch}.zip" $zipfiles )
           ls -la dist
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.target.name }}
-          path: dist/*.apk
+          path: |
+            dist/*.apk
+            dist/*.zip
+            dist/sizes.txt
           if-no-files-found: error
 
       - name: Upload image
@@ -165,7 +190,7 @@ jobs:
           ls -la dist
           repo="$GITHUB_REPOSITORY"
           if gh release view "$GITHUB_REF_NAME" --repo "$repo" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.apk --repo "$repo" --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.zip --repo "$repo" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.apk --repo "$repo" --title "$GITHUB_REF_NAME" --generate-notes
+            gh release create "$GITHUB_REF_NAME" dist/*.apk dist/*.zip --repo "$repo" --title "$GITHUB_REF_NAME" --generate-notes
           fi
