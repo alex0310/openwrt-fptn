@@ -33,7 +33,7 @@ define Package/fptn-client-slim
 TITLE:=FPTN Console VPN Client (size-optimized)
 URL:=https://github.com/fptn-project/fptn
 
-PROVIDES:=libre2.so.11 libprotobuf.so.29.5.0 libutf8_validity.so
+PROVIDES:=fptn-client libre2.so.11 libprotobuf.so.29.5.0 libutf8_validity.so
   DEPENDS:=+libstdcpp +libpthread +libatomic \
 +libidn2 +zlib \
 	+kmod-tun +ip-full
