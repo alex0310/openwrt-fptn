@@ -104,6 +104,14 @@ jobs:
           make package/openwrt-fptn/fptn-client-slim/compile -j"$(nproc)" V=sc
           make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
 
+      - name: Build image
+        working-directory: openwrt
+        run: |
+          grep -q '^CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y$' .config || exit 0
+          make -j"$(nproc)" V=sc
+          echo "=== built images ==="
+          find bin/targets/ramips/mt76x8 -maxdepth 1 -type f -name '*xiaomi_mi-router-4c*' -exec ls -la {} \;
+
       - name: Collect artifacts
         run: |
           set -eu
@@ -126,6 +134,14 @@ jobs:
           name: apk-${{ matrix.target.name }}
           path: dist/*.apk
           if-no-files-found: error
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.target.name }}
+          path: |
+            openwrt/bin/targets/ramips/mt76x8/*xiaomi_mi-router-4c*
+          if-no-files-found: ignore
 
   release:
     name: Publish release
