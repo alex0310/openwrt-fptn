@@ -83,7 +83,7 @@ CMAKE_OPTIONS += \
 	-Dfmt_DIR=$(PKG_BUILD_DIR)/cmake_fake \
 	-DCMAKE_PREFIX_PATH=$(PKG_BUILD_DIR)/cmake_fake \
 	-DCMAKE_CXX_FLAGS_RELEASE="-DNDEBUG -Wno-error -Wno-missing-requires -ffunction-sections -fdata-sections -I$(PKG_BUILD_DIR)/fmt_shim -I$(BORINGSSL_DIR)/include -I$(STAGING_DIR)/usr/include" \
-	-DCMAKE_CXX_LINK_EXECUTABLE="<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> -Wl,--gc-sections -Wl,-O1 <LINK_FLAGS> <OBJECTS> -o <TARGET> -L$(BORINGSSL_DIR) -Wl,--start-group <LINK_LIBRARIES> -l:libssl.a -l:libcrypto.a $(YAFF_LIB_DIR)/libyaff_proto.a $(foreach l,date_time context regex charconv thread chrono atomic container,$(STAGING_DIR)/usr/lib/libboost_$(l).a) -Wl,--end-group -lpthread -ldl"
+	-DCMAKE_CXX_LINK_EXECUTABLE="<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> -Wl,--gc-sections -Wl,-O1 <LINK_FLAGS> <OBJECTS> -o <TARGET> -L$(BORINGSSL_DIR) -Wl,--start-group <LINK_LIBRARIES> -l:libssl.a -l:libcrypto.a $(YAFF_LIB_DIR)/libyaff_proto.a $(foreach l,date_time context regex charconv thread chrono atomic container,$(STAGING_DIR)/usr/lib/libboost_$(l).a) -Wl,--end-group -lpthread -ldl -latomic"
 
 define Package/fptn-client-slim/fptn_sanitizers_strip
 	find $(PKG_BUILD_DIR) -type f \
