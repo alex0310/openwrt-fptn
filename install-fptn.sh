@@ -7,6 +7,7 @@
 #
 #   Версия по умолчанию — последний релиз (GitHub API).
 #   Вариант по умолчанию — fptn-client-slim (доступна всегда), если не указан --full.
+#   FPTN_YES=1 — не спрашивать, ставить недостающие wget/curl/unzip автоматически.
 #
 # Запуск с роутера:
 #   curl -fsSL https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/install-fptn.sh | sh
@@ -31,11 +32,42 @@ warn() { log "WARNING: $*"; }
 
 have() { command -v "$1" >/dev/null 2>&1 || which "$1" >/dev/null 2>&1; }
 
-dl() {
-	if have wget; then wget -q -O "$2" "$1"
-	elif have curl; then curl -fsSL -o "$2" "$1"
-	else die "нет ни wget, ни curl — чем качать?"
+install_pkg() {
+	if have opkg; then opkg update >/dev/null 2>&1 && opkg install "$1" >/dev/null 2>&1 && return 0
+	elif have apk; then apk add "$1" >/dev/null 2>&1 && return 0
 	fi
+	return 1
+}
+
+# интерактивный вопрос в ssh-tty; без tty или при FPTN_YES=1 отвечает сам
+ask() {
+	[ -n "${FPTN_YES:-}" ] && return 0
+	r=""
+	if tty -s 2>/dev/null; then
+		printf '%s [y/N] ' "$*" >&2
+		read -r r </dev/tty 2>/dev/null
+	fi
+	case "$r" in
+		y|Y|yes|Yes|YES|д|Д|да|Да) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+dl() {
+	if have wget; then wget -q -O "$2" "$1"; return 0; fi
+	if have curl; then curl -fsSL -o "$2" "$1"; return 0; fi
+	warn "не установлены ни wget, ни curl"
+	if ask "1) Установить wget и качать им"; then
+		install_pkg wget || die "не удалось установить wget (откройте доступ к репозиториям пакетов)"
+		wget -q -O "$2" "$1" && return 0
+		die "wget не смог скачать: $1"
+	fi
+	if ask "2) Установить curl и качать им"; then
+		install_pkg curl || die "не удалось установить curl (откройте доступ к репозиториям пакетов)"
+		curl -fsSL -o "$2" "$1" && return 0
+		die "curl не смог скачать: $1"
+	fi
+	die "чем качать? установите wget/curl вручную или запустите с FPTN_YES=1"
 }
 
 file_bytes() {
@@ -96,13 +128,13 @@ extract_zip() {
 	if have unzip; then
 		( cd "$TD" && unzip -oq "$1" ) && return 0
 	fi
-	if have opkg; then opkg update >/dev/null 2>&1 && opkg install unzip >/dev/null 2>&1
-	elif have apk; then apk add unzip >/dev/null 2>&1
+	if ask "Установить unzip для распаковки"; then
+		install_pkg unzip || die "не удалось установить unzip (откройте доступ к репозиториям пакетов)"
 	fi
 	( cd "$TD" && unzip -oq "$1" ) 2>/dev/null || return 1
 	return 0
 }
-extract_zip "$ZIP" || die "не удалось распаковать zip: нет unzip (busybox unzip/pакет?)"
+extract_zip "$ZIP" || die "не удалось распаковать zip: нет unzip (busybox unzip/пакет?)"
 
 # --- выбор apk ---
 SLIM=""
