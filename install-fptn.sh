@@ -137,7 +137,8 @@ inst_bytes() {
 		[ -n "$res" ] && { echo "$res"; return; }
 	fi
 	# запасной вариант: поджатый размер x3 (приблизительные unpacked bytes)
-	echo $(( $(file_bytes "$1") * 3 ))
+	b=$(file_bytes "$1"); b=${b:-0}
+	echo $(( b * 3 ))
 }
 
 # --- проверка места и памяти (только предупреждения) ---
@@ -146,9 +147,9 @@ LUCI_NEEDED=0
 [ -n "$LUCI" ] && LUCI_NEEDED=$(inst_bytes "$LUCI")
 FLASH_NEEDED=$((CLIENT_NEEDED + LUCI_NEEDED))
 
-FREE_ROOT_KB=$(avail_kb /)
-FREE_TMP_KB=$(avail_kb /tmp)
-MEM_KB=$(mem_available_kb)
+FREE_ROOT_KB=$(avail_kb /); FREE_ROOT_KB=${FREE_ROOT_KB:-0}
+FREE_TMP_KB=$(avail_kb /tmp); FREE_TMP_KB=${FREE_TMP_KB:-0}
+MEM_KB=$(mem_available_kb); MEM_KB=${MEM_KB:-0}
 FREE_ROOT=$((FREE_ROOT_KB * 1024))
 FREE_TMP=$((FREE_TMP_KB * 1024))
 
