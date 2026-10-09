@@ -109,7 +109,8 @@ jobs:
         run: |
           grep -q '^CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y$' .config || exit 0
           sed -i -e 's/^CONFIG_PACKAGE_boost=.*/# CONFIG_PACKAGE_boost is not set/' \
-                 -e 's/^CONFIG_PACKAGE_googletest=.*/# CONFIG_PACKAGE_googletest is not set/' .config
+                 -e 's/^CONFIG_PACKAGE_googletest=.*/# CONFIG_PACKAGE_googletest is not set/' \
+                 -e 's/^CONFIG_PACKAGE_fptn-client=.*/# CONFIG_PACKAGE_fptn-client is not set/' .config
           make defconfig
           make -j"$(nproc)" V=sc
           echo "=== built images ==="
