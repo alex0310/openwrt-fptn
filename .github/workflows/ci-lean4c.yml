@@ -81,10 +81,11 @@ jobs:
         run: |
           set -eu
           grep -qF 'CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y' .config || exit 0
-          # срезаем сервисы для замера минимального «velope»-образа
-          for p in dnsmasq dropbear firewall4 hostapd-common wpad-basic-mbedtls wireless-regdb ca-bundle; do
-            sed -i "s/^CONFIG_PACKAGE_${p}=.*/# CONFIG_PACKAGE_${p} is not set/" .config
+          # срезаем boost/googletest и сервисы для замера минимального образа
+          for p in boost googletest dnsmasq dropbear firewall4 hostapd-common wpad-basic-mbedtls wireless-regdb; do
+            sed -i "s/^CONFIG_PACKAGE_${p}=.*/CONFIG_PACKAGE_${p}=n/" .config
           done
+          sed -i 's/^\(CONFIG_PACKAGE_boost-[^=]*\)=.*/\1=n/' .config
           make defconfig
           make -j"$(nproc)" V=sc
           mkdir -p ../dist-img
