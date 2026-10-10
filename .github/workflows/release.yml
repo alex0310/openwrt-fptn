@@ -23,10 +23,22 @@ jobs:
         target:
           - name: mediatek
             config: ci-mediatek.config
+            images: true
+            device-symbol: CONFIG_TARGET_mediatek_filogic_DEVICE_xiaomi_mi-router-ax3000t
+            img-path: bin/targets/mediatek/filogic
+            img-drops: fptn-client-slim boost googletest
           - name: ipq40xx
             config: ci-ipq40xx.config
+            images: true
+            device-symbol: CONFIG_TARGET_ipq40xx_generic_DEVICE_glinet_gl-a1300
+            img-path: bin/targets/ipq40xx/generic
+            img-drops: fptn-client-slim boost googletest
           - name: ramips
             config: ci-ramips.config
+            images: false
+            device-symbol: CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c
+            img-path: bin/targets/ramips/mt76x8
+            img-drops: fptn-client boost googletest
 
     steps:
       - name: Checkout overlay
@@ -105,17 +117,27 @@ jobs:
           make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
 
       - name: Build image
+        if: ${{ matrix.target.images }}
         working-directory: openwrt
         run: |
-          grep -q '^CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y$' .config || exit 0
-          sed -i -e 's/^CONFIG_PACKAGE_boost=.*/# CONFIG_PACKAGE_boost is not set/' \
-                 -e 's/^CONFIG_PACKAGE_googletest=.*/# CONFIG_PACKAGE_googletest is not set/' \
-                 -e 's/^CONFIG_PACKAGE_fptn-client=.*/# CONFIG_PACKAGE_fptn-client is not set/' .config
+          set -eu
+          grep -qF '${{ matrix.target.device-symbol }}=y' .config || exit 0
+          drops="${{ matrix.target.img-drops }}"
+          for p in $drops; do
+            sed -i "s/^CONFIG_PACKAGE_${p}=.*/CONFIG_PACKAGE_${p}=n/" .config
+          done
+          case " $drops " in
+            *" boost "*) sed -i 's/^\(CONFIG_PACKAGE_boost-[^=]*\)=.*/\1=n/' .config ;;
+          esac
           make defconfig
           make -j"$(nproc)" V=sc
+          mkdir -p ../dist-img
+          find ${{ matrix.target.img-path }} -maxdepth 1 -type f \
+            \( -name '*-squashfs-sysupgrade.bin' -o -name '*-squashfs-factory.bin' \) \
+            -exec cp {} ../dist-img/ \;
           echo "=== built images ==="
-          find bin/targets/ramips/mt76x8 -maxdepth 1 -type f -name '*xiaomi_mi-router-4c*' -exec ls -la {} \;
-          [ -n "$(find bin/targets/ramips/mt76x8 -maxdepth 1 -type f -name '*squashfs-sysupgrade.bin')" ] || { echo 'ERROR: sysupgrade image missing' >&2; exit 1; }
+          ls -la ../dist-img
+          [ "$(find ../dist-img -type f | wc -l)" -gt 0 ] || { echo 'ERROR: no firmware image produced' >&2; exit 1; }
 
       - name: Collect artifacts
         run: |
@@ -166,12 +188,12 @@ jobs:
           if-no-files-found: error
 
       - name: Upload image
+        if: ${{ matrix.target.images }}
         uses: actions/upload-artifact@v4
         with:
           name: image-${{ matrix.target.name }}
-          path: |
-            openwrt/bin/targets/ramips/mt76x8/*xiaomi_mi-router-4c*
-          if-no-files-found: ignore
+          path: dist-img/*
+          if-no-files-found: error
 
   release:
     name: Publish release
@@ -187,6 +209,14 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Download images
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          path: dist
+          merge-multiple: true
+          if-no-files-found: ignore
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -195,7 +225,7 @@ jobs:
           ls -la dist
           repo="$GITHUB_REPOSITORY"
           if gh release view "$GITHUB_REF_NAME" --repo "$repo" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.zip --repo "$repo" --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/*.apk dist/*.zip dist/*.bin --repo "$repo" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.apk dist/*.zip --repo "$repo" --title "$GITHUB_REF_NAME" --generate-notes
+            gh release create "$GITHUB_REF_NAME" dist/*.apk dist/*.zip dist/*.bin --repo "$repo" --title "$GITHUB_REF_NAME" --generate-notes
           fi

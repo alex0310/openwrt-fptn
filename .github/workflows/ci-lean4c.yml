@@ -1,0 +1,104 @@
+name: Lean 4C image experiment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  OPENWRT_COMMIT: 3cdb8b59d9aa7569b3b9ae6df5f1b05ce93b50d2
+
+jobs:
+  build:
+    name: Build lean 4C image
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Checkout OpenWrt
+        uses: actions/checkout@v6
+        with:
+          repository: openwrt/openwrt
+          ref: ${{ env.OPENWRT_COMMIT }}
+          path: openwrt
+          fetch-depth: 1
+
+      - name: Allow git in CI
+        run: git config --global --add safe.directory '*'
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Overlay packages into OpenWrt tree
+        run: cp -a package/. openwrt/package/
+
+      - name: Update feeds
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          sed -i 's/PKG_BUILD_FLAGS:=no-mips16 gc-sections lto/PKG_BUILD_FLAGS:=no-mips16 gc-sections/' feeds/packages/libs/boost/Makefile
+          sed -i 's/$(if $(CONFIG_PACKAGE_boost-locale),boost.locale.std=off boost.locale.posix=off)/$(if $(CONFIG_PACKAGE_boost-locale),boost.locale.icu=off boost.locale.std=on boost.locale.posix=on)/' feeds/packages/libs/boost/Makefile
+          ./scripts/feeds install -a
+
+      - name: Configure
+        working-directory: openwrt
+        run: |
+          cp ../ci-lean4c.config .config
+          make defconfig
+          sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\(.*\)"/target arch: \1/p' .config
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: openwrt/dl
+          key: dllean-${{ env.OPENWRT_COMMIT }}-${{ hashFiles('package/**/Makefile') }}
+          restore-keys: |
+            dl-
+
+      - name: Build toolchain
+        working-directory: openwrt
+        run: |
+          make tools/install -j"$(nproc)"
+          make toolchain/install -j"$(nproc)"
+
+      - name: Build kernel
+        working-directory: openwrt
+        run: |
+          make target/linux/compile -j"$(nproc)"
+          make package/kernel/linux/compile -j"$(nproc)"
+
+      - name: Build fptn packages
+        working-directory: openwrt
+        run: |
+          make package/openwrt-fptn/fptn-client-slim/compile -j"$(nproc)" V=sc
+
+      - name: Build image (lean)
+        working-directory: openwrt
+        run: |
+          set -eu
+          grep -qF 'CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y' .config || exit 0
+          # срезаем сервисы для замера минимального «velope»-образа
+          for p in dnsmasq dropbear firewall4 hostapd-common wpad-basic-mbedtls wireless-regdb ca-bundle; do
+            sed -i "s/^CONFIG_PACKAGE_${p}=.*/# CONFIG_PACKAGE_${p} is not set/" .config
+          done
+          make defconfig
+          make -j"$(nproc)" V=sc
+          mkdir -p ../dist-img
+          find bin/targets/ramips/mt76x8 -maxdepth 1 -type f \
+            -name '*xiaomi_mi-router-4c*' -exec cp {} ../dist-img/ \;
+          echo "=== built images ==="
+          ls -la ../dist-img
+          echo "=== root squashfs size ==="
+          ls -la build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
+          du -h build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
+
+      - name: Upload experiment image
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-lean4c
+          path: dist-img/*
+          if-no-files-found: ignore
