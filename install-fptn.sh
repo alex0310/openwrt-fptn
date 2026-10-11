@@ -101,6 +101,15 @@ if [ -z "$VERSION" ]; then
 	dl "https://api.github.com/repos/$REPO/releases/latest" "$m/meta" \
 		|| die "не удалось узнать последний релиз (укажите версию аргументом)"
 	VERSION=$(sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"v\?\([^"]*\)".*/\1/p' "$m/meta" | head -n1)
+	if [ -z "$VERSION" ]; then
+		# GitHub API может быть rate-limited; у atom-ленты (github.com) лимитов нет.
+		# В ленте заголовок тега идёт как "<title>v0.4.5</title>".
+		warn "GitHub API не вернул последний релиз; пробую atom-ленту"
+		dl "https://github.com/$REPO/releases.atom" "$m/atom" >/dev/null 2>&1 \
+			|| true
+		VERSION=$(sed -n 's/.*<title>\(v[0-9][^<]*\)<\/title>.*/\1/p' "$m/atom" 2>/dev/null | head -n1)
+		VERSION="${VERSION#v}"
+	fi
 	rm -rf "$m"
 	[ -n "$VERSION" ] || die "не удалось определить последнюю версию"
 fi
