@@ -54,18 +54,28 @@ ask() {
 }
 
 dl() {
-	if have wget; then wget -q -O "$2" "$1"; return 0; fi
-	if have curl; then curl -fsSL -o "$2" "$1"; return 0; fi
+	if have wget; then
+		wget -q -O "$2" "$1" || return 1
+		[ -s "$2" ] || return 1
+		return 0
+	fi
+	if have curl; then
+		curl -fsSL -o "$2" "$1" || return 1
+		[ -s "$2" ] || return 1
+		return 0
+	fi
 	warn "не установлены ни wget, ни curl"
 	if ask "1) Установить wget и качать им"; then
 		install_pkg wget || die "не удалось установить wget (откройте доступ к репозиториям пакетов)"
-		wget -q -O "$2" "$1" && return 0
-		die "wget не смог скачать: $1"
+		wget -q -O "$2" "$1" || return 1
+		[ -s "$2" ] || return 1
+		return 0
 	fi
 	if ask "2) Установить curl и качать им"; then
 		install_pkg curl || die "не удалось установить curl (откройте доступ к репозиториям пакетов)"
-		curl -fsSL -o "$2" "$1" && return 0
-		die "curl не смог скачать: $1"
+		curl -fsSL -o "$2" "$1" || return 1
+		[ -s "$2" ] || return 1
+		return 0
 	fi
 	die "чем качать? установите wget/curl вручную или запустите с FPTN_YES=1"
 }
@@ -98,19 +108,20 @@ get_arch() {
 # --- версия ---
 if [ -z "$VERSION" ]; then
 	m=$(mktemp -d /tmp/fptn.XXXXXX) || die "нет места в /tmp"
-	dl "https://api.github.com/repos/$REPO/releases/latest" "$m/meta" \
-		|| die "не удалось узнать последний релиз (укажите версию аргументом)"
-	VERSION=$(sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"v\?\([^"]*\)".*/\1/p' "$m/meta" | head -n1)
-	if [ -z "$VERSION" ]; then
-		# GitHub API может быть rate-limited; у atom-ленты (github.com) лимитов нет.
-		# В ленте заголовок тега идёт как "<title>v0.4.5</title>".
-		warn "GitHub API не вернул последний релиз; пробую atom-ленту"
-		dl "https://github.com/$REPO/releases.atom" "$m/atom" >/dev/null 2>&1 \
-			|| true
-		VERSION=$(sed -n 's/.*<title>\(v[0-9][^<]*\)<\/title>.*/\1/p' "$m/atom" 2>/dev/null | head -n1)
-		VERSION="${VERSION#v}"
+	# 1) GitHub API (может быть rate-limited)
+	if dl "https://api.github.com/repos/$REPO/releases/latest" "$m/meta"; then
+		VERSION=$(sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"v\?\([^"]*\)".*/\1/p' "$m/meta" | head -n1)
+	fi
+	# 2) atom-лента релизов (github.com; лимитов API нет)
+	if [ -z "$VERSION" ] && dl "https://github.com/$REPO/releases.atom" "$m/atom"; then
+		VERSION=$(sed -n 's/.*<title>\(v[0-9][^<]*\)<\/title>.*/\1/p' "$m/atom" | head -n1)
+	fi
+	# 3) файл version в репозитории (raw.githubusercontent.com, работает у всех)
+	if [ -z "$VERSION" ] && dl "https://raw.githubusercontent.com/$REPO/main/version" "$m/ver"; then
+		VERSION=$(tr -d '[:space:]' < "$m/ver")
 	fi
 	rm -rf "$m"
+	VERSION="${VERSION#v}"
 	[ -n "$VERSION" ] || die "не удалось определить последнюю версию"
 fi
 
