@@ -232,6 +232,19 @@ if [ -n "$MEM_KB" ] && [ "$((MEM_KB * 1024))" -lt "$TMP_NEEDED" ]; then
 fi
 
 log "Устанавливаю: $CLIENT ${LUCI:-}"
+# full и slim несовместимы (общие *.so, slim ещё и PROVIDES fptn-client).
+# Снимаем несовместимый вариант и luci, иначе apk/opkg не сможет выбрать.
+case "$(basename "$CLIENT")" in
+	*-slim-*) OTHER=fptn-client ;;
+	*)        OTHER=fptn-client-slim ;;
+esac
+if have apk; then
+	apk del luci-app-fptn >/dev/null 2>&1
+	apk del "$OTHER" >/dev/null 2>&1
+elif have opkg; then
+	opkg remove luci-app-fptn >/dev/null 2>&1
+	opkg remove "$OTHER" >/dev/null 2>&1
+fi
 if have apk; then
 	apk add --allow-untrusted "$CLIENT" $LUCI
 elif have opkg; then
