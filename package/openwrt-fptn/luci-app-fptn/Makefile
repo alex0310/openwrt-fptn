@@ -7,12 +7,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fptn
-PKG_VERSION:=0.4.5
-PKG_RELEASE:=3
+PKG_VERSION:=0.4.6
+PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/fptn-project/fptn/tar.gz/4d84f6bc61d0bb407cdd8548b53a09bffbceb4a8?
-PKG_HASH:=a904405d79d69ee1c1390b95efc9555e1eb8737cbced586442d2f5b53352f367
+PKG_SOURCE_URL:=https://codeload.github.com/fptn-project/fptn/tar.gz/a389bee62da930807c3bc85284ee4976e9c7e08f?
+PKG_HASH:=445bcd40da30cc9dcec18cdf01b99f09c2d9629314fdb48c2f88fbb083f24f41
 
 PKG_BROTLI_VERSION:=1.2.0
 
@@ -27,7 +27,7 @@ PKG_MAINTAINER:=Embedded Developer <dev@example.com>
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
 
-LUCI_FPTN:=0.4.5
+LUCI_FPTN:=0.4.6
 
 include $(INCLUDE_DIR)/package.mk
 
