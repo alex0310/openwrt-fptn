@@ -116,12 +116,20 @@ if [ -z "$VERSION" ]; then
 	if [ -z "$VERSION" ] && dl "https://github.com/$REPO/releases.atom" "$m/atom"; then
 		VERSION=$(sed -n 's/.*<title>\(v[0-9][^<]*\)<\/title>.*/\1/p' "$m/atom" | head -n1)
 	fi
-	# 3) файл version в репозитории (raw.githubusercontent.com, работает у всех)
+	# 3) файл version в репозитории (redirect на sha обходит кэш ветки raw.githubusercontent.com)
+	if [ -z "$VERSION" ] && dl "https://github.com/$REPO/raw/main/version" "$m/ver"; then
+		VERSION=$(tr -d '[:space:]' < "$m/ver")
+	fi
+	# 4) тот же файл напрямую с raw.githubusercontent.com
 	if [ -z "$VERSION" ] && dl "https://raw.githubusercontent.com/$REPO/main/version" "$m/ver"; then
 		VERSION=$(tr -d '[:space:]' < "$m/ver")
 	fi
 	rm -rf "$m"
 	VERSION="${VERSION#v}"
+	# версия обязана быть числами и точками (тела 404/HTML отсеиваем)
+	case "$VERSION" in
+		''|*[!0-9.]*) VERSION="" ;;
+	esac
 	[ -n "$VERSION" ] || die "не удалось определить последнюю версию"
 fi
 
