@@ -33,9 +33,16 @@ warn() { log "WARNING: $*"; }
 have() { command -v "$1" >/dev/null 2>&1 || which "$1" >/dev/null 2>&1; }
 
 install_pkg() {
-	if have opkg; then opkg update >/dev/null 2>&1 && opkg install "$1" >/dev/null 2>&1 && return 0
-	elif have apk; then apk add "$1" >/dev/null 2>&1 && return 0
+	_plog=/tmp/fptn-pkg.log
+	if have opkg; then
+		{ opkg update && opkg install "$1"; } >"$_plog" 2>&1 && return 0
+	elif have apk; then
+		{ apk update && apk add "$1"; } >"$_plog" 2>&1 && return 0
+	else
+		return 1
 	fi
+	warn "не удалось установить пакет '$1':"
+	tail -n 5 "$_plog" 2>/dev/null | sed 's/^/  /' >&2
 	return 1
 }
 
@@ -151,18 +158,26 @@ trap 'cleanup' EXIT HUP INT TERM
 
 # --- распаковка ---
 extract_zip() {
-	( cd "$TD" && unzip -oq "$1" ) 2>/dev/null && return 0
-	( cd "$TD" && busybox unzip -oq "$1" ) 2>/dev/null && return 0
 	if have unzip; then
-		( cd "$TD" && unzip -oq "$1" ) && return 0
+		( cd "$TD" && unzip -oq "$1" ) 2>/dev/null && return 0
 	fi
-	if ask "Установить unzip для распаковки"; then
-		install_pkg unzip || die "не удалось установить unzip (откройте доступ к репозиториям пакетов)"
+	if have busybox && busybox unzip --help >/dev/null 2>&1; then
+		( cd "$TD" && busybox unzip -oq "$1" ) 2>/dev/null && return 0
 	fi
-	( cd "$TD" && unzip -oq "$1" ) 2>/dev/null || return 1
+	if have python3; then
+		( cd "$TD" && python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(".")' "$1" ) 2>/dev/null && return 0
+	fi
+	# unzip отсутствует — предложим установить пакет
+	if ! ask "unzip/python3 не найдены. Установить пакет unzip для распаковки"; then
+		die "нет unzip: установите вручную ('apk add unzip' или 'opkg install unzip') и повторите"
+	fi
+	install_pkg unzip || die "не удалось установить unzip (нет доступа к репозиториям пакетов?)"
+	( cd "$TD" && unzip -oq "$1" ) 2>/dev/null \
+		|| ( cd "$TD" && busybox unzip -oq "$1" ) 2>/dev/null \
+		|| die "unzip установлен, но распаковать не удалось"
 	return 0
 }
-extract_zip "$ZIP" || die "не удалось распаковать zip: нет unzip (busybox unzip/пакет?)"
+extract_zip "$ZIP"
 
 # --- выбор apk ---
 SLIM=""
