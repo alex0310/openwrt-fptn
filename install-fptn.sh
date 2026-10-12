@@ -7,7 +7,7 @@
 #
 #   Версия по умолчанию — последний релиз (GitHub API).
 #   Вариант по умолчанию спрашивается интерактивно (full/slim); без ответа через
-#   3 секунды выбирается slim. Можно задать сразу: --full/--slim или FPTN_VARIANT=full.
+#   15 секунд выбирается slim. Можно задать сразу: --full/--slim или FPTN_VARIANT=full.
 #   FPTN_YES=1 — не спрашивать (сразу slim) и ставить недостающие wget/curl/unzip автоматически.
 #
 # Запуск с роутера (при пайпе аргументы идут после `--`):
@@ -151,9 +151,9 @@ ARCH=$(get_arch)
 # --- выбор варианта: full или slim (если не задан аргументом/FPTN_VARIANT) ---
 if [ -z "$VARIANT" ]; then
 	if [ -z "${FPTN_YES:-}" ] && { : < /dev/tty; } 2>/dev/null; then
-		printf 'Выберите вариант: [1] full  [2] slim\nВведите 1 или 2 (через 3 сек автоматически slim): ' >&2
+		printf 'Выберите вариант: [1] full  [2] slim\nВведите 1 или 2 (через 15 сек автоматически slim): ' >&2
 		VARIANT=""
-		if read -r -t 3 _ans </dev/tty 2>/dev/null; then
+		if read -r -t 15 _ans </dev/tty 2>/dev/null; then
 			case "$_ans" in
 				1|f|F|full|Full|ф|Ф) VARIANT=full ;;
 				2|s|S|slim|Slim|с|С) VARIANT=slim ;;
@@ -321,4 +321,22 @@ fi
 log "Установлено. Дальше:"
 log "  /etc/init.d/fptn enable && /etc/init.d/fptn start"
 log "  uci set fptn.client.server=SERVER_IP; uci commit fptn"
+
+# --- перезагрузка сервисов, чтобы подхватились новый ACL/меню и правила ---
+reload_service() {
+	[ -x "/etc/init.d/$1" ] || return 0
+	"/etc/init.d/$1" reload >/dev/null 2>&1 \
+		|| "/etc/init.d/$1" restart >/dev/null 2>&1
+}
+
+log "Перезагружаю сервисы: rpcd, firewall"
+reload_service rpcd
+reload_service firewall
+
+# network — только если есть неприменённые изменения конфигурации
+if [ -n "$(uci -q changes network 2>/dev/null)" ]; then
+	log "В network есть неприменённые изменения — перезагружаю network"
+	reload_service network
+fi
+
 log "ZIP и временные файлы удалены автоматически."
