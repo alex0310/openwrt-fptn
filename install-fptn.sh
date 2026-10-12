@@ -50,7 +50,8 @@ install_pkg() {
 ask() {
 	[ -n "${FPTN_YES:-}" ] && return 0
 	r=""
-	if tty -s 2>/dev/null; then
+	# при `wget ... | sh` stdin — труба, поэтому спрашиваем через /dev/tty
+	if { : < /dev/tty; } 2>/dev/null; then
 		printf '%s [y/N] ' "$*" >&2
 		read -r r </dev/tty 2>/dev/null
 	fi
@@ -167,11 +168,9 @@ extract_zip() {
 	if have python3; then
 		( cd "$TD" && python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(".")' "$1" ) 2>/dev/null && return 0
 	fi
-	# unzip отсутствует — предложим установить пакет
-	if ! ask "unzip/python3 не найдены. Установить пакет unzip для распаковки"; then
-		die "нет unzip: установите вручную ('apk add unzip' или 'opkg install unzip') и повторите"
-	fi
-	install_pkg unzip || die "не удалось установить unzip (нет доступа к репозиториям пакетов?)"
+	# unzip отсутствует — ставим пакет (обязательная зависимость для распаковки zip)
+	log "unzip не найден, устанавливаю пакет unzip..."
+	install_pkg unzip || die "не удалось установить unzip: поставьте вручную ('apk update && apk add unzip' или 'opkg update && opkg install unzip') и повторите"
 	( cd "$TD" && unzip -oq "$1" ) 2>/dev/null \
 		|| ( cd "$TD" && busybox unzip -oq "$1" ) 2>/dev/null \
 		|| die "unzip установлен, но распаковать не удалось"
