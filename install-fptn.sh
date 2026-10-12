@@ -9,19 +9,22 @@
 #   Вариант по умолчанию — fptn-client-slim (доступна всегда), если не указан --full.
 #   FPTN_YES=1 — не спрашивать, ставить недостающие wget/curl/unzip автоматически.
 #
-# Запуск с роутера:
+# Запуск с роутера (при пайпе аргументы идут после `--`):
 #   curl -fsSL https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/install-fptn.sh | sh
-#   wget -qO- https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/install-fptn.sh | sh
+#   wget -qO-  https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/install-fptn.sh | sh -s -- --full
+#
+#   Вариант можно задать и переменной окружения:
+#   wget -qO- .../install-fptn.sh | FPTN_VARIANT=full sh
 #
 
 REPO="alex0310/openwrt-fptn"
 VERSION=""
-VARIANT=""
+VARIANT="${FPTN_VARIANT:-}"
 
 for a in "$@"; do
 	case "$a" in
-		--slim) VARIANT=slim ;;
-		--full) VARIANT=full ;;
+		--slim|slim) VARIANT=slim ;;
+		--full|full) VARIANT=full ;;
 		v[0-9]*|[0-9]*) VERSION="${a#v}" ;;
 	esac
 done
@@ -143,7 +146,7 @@ fi
 
 ARCH=$(get_arch)
 [ -n "$ARCH" ] && [ "$ARCH" != "unknown" ] || die "не удалось определить архитектуру пакетов"
-log "FPTN installer: version=$VERSION arch=$ARCH"
+log "FPTN installer: version=$VERSION arch=$ARCH variant=${VARIANT:-auto}"
 
 # --- скачивание zip нужной архитектуры ---
 URLBASE="https://github.com/$REPO/releases/download/v$VERSION"
