@@ -273,23 +273,47 @@ if [ -n "$MEM_KB" ] && [ "$((MEM_KB * 1024))" -lt "$TMP_NEEDED" ]; then
 fi
 
 log "Устанавливаю: $CLIENT ${LUCI:-}"
-# full и slim несовместимы (общие *.so, slim ещё и PROVIDES fptn-client).
-# Снимаем несовместимый вариант и luci, иначе apk/opkg не сможет выбрать.
-case "$(basename "$CLIENT")" in
-	*-slim-*) OTHER=fptn-client ;;
-	*)        OTHER=fptn-client-slim ;;
-esac
-if have apk; then
-	apk del luci-app-fptn >/dev/null 2>&1
-	apk del "$OTHER" >/dev/null 2>&1
-elif have opkg; then
-	opkg remove luci-app-fptn >/dev/null 2>&1
-	opkg remove "$OTHER" >/dev/null 2>&1
+
+# --- проверка прежних установок ---
+pkg_installed() {
+	if have apk; then
+		apk info 2>/dev/null | grep -qx "$1"
+	elif have opkg; then
+		opkg list-installed 2>/dev/null | awk '{print $1}' | grep -qx "$1"
+	else
+		return 1
+	fi
+}
+
+# full и slim несовместимы (общие *.so, slim ещё и PROVIDES fptn-client),
+# поэтому снимаем ВСЕ прежние варианты fptn и luci — файлы и библиотеки будут перезаписаны новыми.
+OLD=""
+for p in fptn-client fptn-client-slim luci-app-fptn; do
+	pkg_installed "$p" && OLD="$OLD $p"
+done
+if [ -n "$OLD" ]; then
+	log "Найдены прежние установки:$OLD — удаляю перед установкой"
+	for p in $OLD; do
+		if have apk; then
+			apk del "$p" >/dev/null 2>&1
+		elif have opkg; then
+			opkg remove "$p" >/dev/null 2>&1
+		fi
+	done
+else
+	log "Прежних установок fptn не найдено"
 fi
+
+# --- установка с перезаписью конфликтующих файлов/библиотек ---
 if have apk; then
-	apk add --allow-untrusted "$CLIENT" $LUCI
+	if apk add --help 2>&1 | grep -q -- '--force-overwrite'; then
+		apk add --allow-untrusted --force-overwrite "$CLIENT" $LUCI
+	else
+		apk add --allow-untrusted "$CLIENT" $LUCI
+	fi
 elif have opkg; then
-	opkg install "$CLIENT" $LUCI
+	opkg install --force-overwrite "$CLIENT" $LUCI 2>/dev/null \
+		|| opkg install "$CLIENT" $LUCI
 else
 	die "нет ни apk, ни opkg"
 fi
