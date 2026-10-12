@@ -6,8 +6,9 @@
 #   sh install-fptn.sh [версия v0.4.5] [--slim|--full]
 #
 #   Версия по умолчанию — последний релиз (GitHub API).
-#   Вариант по умолчанию — fptn-client-slim (доступна всегда), если не указан --full.
-#   FPTN_YES=1 — не спрашивать, ставить недостающие wget/curl/unzip автоматически.
+#   Вариант по умолчанию спрашивается интерактивно (full/slim); без ответа через
+#   3 секунды выбирается slim. Можно задать сразу: --full/--slim или FPTN_VARIANT=full.
+#   FPTN_YES=1 — не спрашивать (сразу slim) и ставить недостающие wget/curl/unzip автоматически.
 #
 # Запуск с роутера (при пайпе аргументы идут после `--`):
 #   curl -fsSL https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/install-fptn.sh | sh
@@ -146,7 +147,26 @@ fi
 
 ARCH=$(get_arch)
 [ -n "$ARCH" ] && [ "$ARCH" != "unknown" ] || die "не удалось определить архитектуру пакетов"
-log "FPTN installer: version=$VERSION arch=$ARCH variant=${VARIANT:-auto}"
+
+# --- выбор варианта: full или slim (если не задан аргументом/FPTN_VARIANT) ---
+if [ -z "$VARIANT" ]; then
+	if [ -z "${FPTN_YES:-}" ] && { : < /dev/tty; } 2>/dev/null; then
+		printf 'Выберите вариант: [1] full  [2] slim\nВведите 1 или 2 (через 3 сек автоматически slim): ' >&2
+		VARIANT=""
+		if read -r -t 3 _ans </dev/tty 2>/dev/null; then
+			case "$_ans" in
+				1|f|F|full|Full|ф|Ф) VARIANT=full ;;
+				2|s|S|slim|Slim|с|С) VARIANT=slim ;;
+			esac
+		fi
+		[ -n "$VARIANT" ] || VARIANT=slim
+		printf 'Выбран вариант: %s\n' "$VARIANT" >&2
+	else
+		VARIANT=slim
+	fi
+fi
+
+log "FPTN installer: version=$VERSION arch=$ARCH variant=$VARIANT"
 
 # --- скачивание zip нужной архитектуры ---
 URLBASE="https://github.com/$REPO/releases/download/v$VERSION"
@@ -200,6 +220,10 @@ case "$VARIANT" in
 		CLIENT=${SLIM:-$FULL}
 		[ -z "$FULL" ] && [ -z "$SLIM" ] && die "в zip нет fptn-client*.apk"
 esac
+if [ -z "$CLIENT" ] && [ -n "$SLIM" ]; then
+	warn "full недоступен в этом релизе, ставлю slim"
+	CLIENT=$SLIM
+fi
 CLIENT=${CLIENT:-$FULL}
 [ -n "$CLIENT" ] || die "не выбран клиентский apk"
 LUCI=${LUCI:-}
