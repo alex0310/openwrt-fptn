@@ -1,0 +1,222 @@
+--- a/deploy/openwrt/data/luci/www/luci-static/resources/view/fptn/main.js
++++ b/deploy/openwrt/data/luci/www/luci-static/resources/view/fptn/main.js
+@@ -14,6 +14,12 @@
+ 
+ var brotliDecode;
+ 
++// Custom split-tunnel domain list. When the file is absent or empty, the
++// client falls back to its built-in list, so an empty textarea means "use the
++// built-in list".
++var splitDomainsFile = '/etc/fptn/split-tunnel-domains.txt';
++var splitDomainsContent = null;
++
+ var spoofingMethods = [
+ 	[ 'sni-spoofing-chrome-149', 'Chrome 149' ],
+ 	[ 'sni-spoofing-chrome-148', 'Chrome 148' ],
+@@ -344,6 +350,142 @@
+ 	return o;
+ }
+ 
++// Collapse a block of text into a normalized domain list: trimmed lines,
++// empty lines dropped, LF line endings.
++function normalizeDomains(value) {
++	return (value || '').split(/\r?\n/).map(function (line) {
++		return line.trim();
++	}).filter(function (line) {
++		return line.length > 0;
++	}).join('\n');
++}
++
++// File-backed editor for the split-tunnel domain list, with Import / Export /
++// Delete buttons. The list is stored in splitDomainsFile; an empty value
++// removes the file so the client reverts to its built-in list.
++function splitDomainsOption(section, tab, title, description, placeholder) {
++	var o = section.taboption(tab, form.TextValue, '_split_tunnel_domains',
++		title, description);
++
++	o.rows = 15;
++	o.placeholder = placeholder;
++	o.rmempty = true;
++	o.monospace = true;
++
++	o.cfgvalue = function () {
++		return (splitDomainsContent != null) ? splitDomainsContent : '';
++	};
++
++	o.write = function (sid, value) {
++		var text = normalizeDomains(value);
++		splitDomainsContent = text.length ? text + '\n' : '';
++		return fs.write(splitDomainsFile, splitDomainsContent);
++	};
++
++	o.remove = function () {
++		splitDomainsContent = '';
++		return fs.remove(splitDomainsFile).catch(function () {});
++	};
++
++	o.renderWidget = function (section_id, option_index, cfgvalue) {
++		var node = form.TextValue.prototype.renderWidget.call(this,
++			section_id, option_index, cfgvalue);
++
++		var areaId = this.cbid(section_id);
++
++		function area() {
++			var frame = document.getElementById(areaId);
++			return frame ? frame.firstElementChild : null;
++		}
++
++		function setArea(text) {
++			var el = area();
++			if (!el)
++				return;
++			el.value = text;
++			// Mark the widget dirty and update the "unsaved changes" state.
++			el.dispatchEvent(new Event('change', { bubbles: true }));
++		}
++
++		function download(text) {
++			var blob = new Blob([ text ], { type: 'text/plain;charset=utf-8' });
++			var url = URL.createObjectURL(blob);
++			var link = E('a', { 'href': url, 'download': 'split-tunnel-domains.txt' });
++			document.body.appendChild(link);
++			link.click();
++			document.body.removeChild(link);
++			window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
++		}
++
++		var fileInput = E('input', {
++			'type': 'file',
++			'accept': '.txt,text/plain',
++			'style': 'display:none'
++		});
++
++		fileInput.addEventListener('change', function () {
++			var file = fileInput.files && fileInput.files[0];
++			if (!file)
++				return;
++			var reader = new FileReader();
++			reader.onload = function () {
++				setArea(String(reader.result || ''));
++				fileInput.value = '';
++				ui.addNotification(null, E('p',
++					_('Imported %s — press "Save & Apply" to apply.').format(file.name)),
++					'info');
++			};
++			reader.readAsText(file);
++		});
++
++		var importButton = E('button', {
++			'class': 'cbi-button cbi-button-action',
++			'type': 'button',
++			'click': function () { fileInput.click(); }
++		}, _('Import file'));
++
++		var exportButton = E('button', {
++			'class': 'cbi-button',
++			'type': 'button',
++			'click': function () {
++				var el = area();
++				var text = el ? normalizeDomains(el.value) : '';
++				if (text.length) {
++					download(text + '\n');
++					return;
++				}
++				fs.exec('/usr/bin/fptn-client-rs', [ '--print-split-tunnel-domains' ])
++					.then(function (res) {
++						download(res.stdout || '');
++					}).catch(function () {
++						ui.addNotification(null, E('p',
++							_('Unable to read the built-in list.')), 'error');
++					});
++			}
++		}, _('Export file'));
++
++		var deleteButton = E('button', {
++			'class': 'cbi-button cbi-button-negative',
++			'type': 'button',
++			'click': function () {
++				setArea('');
++				ui.addNotification(null, E('p',
++					_('The custom list is cleared — press "Save & Apply" to ' +
++					'revert to the built-in list.')), 'info');
++			}
++		}, _('Delete list'));
++
++		return E('div', {}, [
++			node,
++			E('div', {
++				'style': 'margin-top:.4em;display:flex;gap:.5em;flex-wrap:wrap;align-items:center'
++			}, [ importButton, exportButton, deleteButton, fileInput ])
++		]);
++	};
++
++	return o;
++}
++
+ function compareVersions(left, right) {
+ 	var a = String(left).replace(/^v/, '').split('.');
+ 	var b = String(right).replace(/^v/, '').split('.');
+@@ -699,7 +841,8 @@
+ 
+ 			return Promise.all([
+ 				serviceInfo(), hasTunnel(), readLog(), tunnelStats(tun),
+-				import(L.resource('fptn/brotli.js'))
++				import(L.resource('fptn/brotli.js')),
++				L.resolveDefault(fs.read(splitDomainsFile), '')
+ 			]);
+ 		});
+ 	},
+@@ -711,6 +854,7 @@
+ 		var token = uci.get('fptn', 'config', 'access_token');
+ 
+ 		brotliDecode = data[4].BrotliDecode;
++		splitDomainsContent = data[5] != null ? data[5] : '';
+ 
+ 		poll.add(refresh, 5);
+ 
+@@ -880,17 +1024,15 @@
+ 		o.default = 'exclude';
+ 		o.depends('enable_split_tunnel', '1');
+ 
+-		o = listOption(s, 'routing', 'split_tunnel_domains_exclude',
+-			'split_tunnel_domains', _('Domains to bypass VPN'),
+-			_('List domains that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN'),
++		o = splitDomainsOption(s, 'routing',
++			_('Split tunnel domains'),
++			_('One domain per line. In "Exclude" mode these domains bypass the ' +
++			'VPN; in "Include" mode only these domains use it. Subdomains are ' +
++			'matched automatically, e.g. example.com also matches ' +
++			'www.example.com. Leave the field empty to use the built-in list ' +
++			'of about 2000 domains.'),
+ 			'example.com');
+-		o.depends({ enable_split_tunnel: '1', split_tunnel_mode: 'exclude' });
+-
+-		o = listOption(s, 'routing', 'split_tunnel_domains_include',
+-			'split_tunnel_domains', _('Domains to route through VPN'),
+-			_('List domains that should use VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN'),
+-			'example.com');
+-		o.depends({ enable_split_tunnel: '1', split_tunnel_mode: 'include' });
++		o.depends('enable_split_tunnel', '1');
+ 
+ 		listOption(s, 'routing', 'blacklist_domains', 'blacklist_domains',
+ 			_('Blacklist domains'),
+--- a/deploy/openwrt/data/luci/usr/share/rpcd/acl.d/luci-app-fptn.json
++++ b/deploy/openwrt/data/luci/usr/share/rpcd/acl.d/luci-app-fptn.json
+@@ -11,13 +11,16 @@
+ 				"/sbin/ip": [ "exec" ],
+ 				"/bin/ping": [ "exec" ],
+ 				"/usr/bin/fptn-tcp-probe": [ "exec" ],
++				"/usr/bin/fptn-client-rs": [ "exec" ],
++				"/etc/fptn/split-tunnel-domains.txt": [ "read" ],
+ 				"/var/log/fptn/fptn-client-cli.log": [ "read" ]
+ 			}
+ 		},
+ 		"write": {
+ 			"uci": [ "fptn" ],
+ 			"file": {
+-				"/etc/init.d/fptn": [ "exec" ]
++				"/etc/init.d/fptn": [ "exec" ],
++				"/etc/fptn/split-tunnel-domains.txt": [ "write" ]
+ 			}
+ 		}
+ 	}

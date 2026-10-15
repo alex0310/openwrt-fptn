@@ -33,6 +33,16 @@ append_preferred_server() {
 		procd_append_param command --preferred-server "$LIST_VALUES"
 }
 
+SPLIT_TUNNEL_DOMAINS_FILE=/etc/fptn/split-tunnel-domains.txt
+
+append_split_tunnel_domains_file() {
+	# The custom split-tunnel list lives in a file managed by LuCI. When it is
+	# missing or empty the client falls back to its built-in list, which is why
+	# the flag is only passed when there is something to read.
+	[ -s "$SPLIT_TUNNEL_DOMAINS_FILE" ] &&
+		procd_append_param command --split-tunnel-domains-file "$SPLIT_TUNNEL_DOMAINS_FILE"
+}
+
 append_bool() {
 	local value
 	config_get_bool value config "$1" "$3"
@@ -113,6 +123,9 @@ restore_dns() {
 start_service() {
 	config_load fptn
 
+	# Directory for the LuCI-managed split-tunnel domain list.
+	mkdir -p /etc/fptn
+
 	restore_dns
 
 	local enabled
@@ -161,7 +174,7 @@ start_service() {
 
 	append_bool enable_split_tunnel enable-split-tunnel 1
 	append_option split_tunnel_mode split-tunnel-mode
-	append_list split_tunnel_domains split-tunnel-domains
+	append_split_tunnel_domains_file
 	append_list exclude_tunnel_networks exclude-tunnel-networks
 	append_list include_tunnel_networks include-tunnel-networks
 	append_list blacklist_domains blacklist-domains

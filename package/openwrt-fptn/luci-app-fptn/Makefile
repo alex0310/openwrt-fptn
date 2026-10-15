@@ -8,7 +8,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fptn
 PKG_VERSION:=0.4.6
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/fptn-project/fptn/tar.gz/a389bee62da930807c3bc85284ee4976e9c7e08f?
@@ -48,6 +48,9 @@ endef
 define Build/Prepare
 	mkdir -p $(PKG_BUILD_DIR)
 	$(TAR) -C $(PKG_BUILD_DIR) --strip-components=1 -xf $(DL_DIR)/$(PKG_SOURCE)
+	# Patches would normally be applied by the default Build/Prepare, which we
+	# override above — so apply ./patches ourselves.
+	$(Build/Patch)
 endef
 
 define Build/Compile

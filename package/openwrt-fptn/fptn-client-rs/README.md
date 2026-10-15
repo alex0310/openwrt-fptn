@@ -20,9 +20,25 @@ the `Makefile` for why).
 * `CONFLICTS:=fptn-client fptn-client-slim` — the C++ clients own the same
   `/etc/init.d/fptn` and `/etc/config/fptn`.
 * UCI schema (`/etc/config/fptn`), procd service name (`fptn`) and the CLI used
-  by the init script are identical to upstream, so the stock `luci-app-fptn`
-  works unchanged.
+  by the init script are identical to upstream. Our `luci-app-fptn` is the stock
+  one plus a small patch (`patches/`) for the split-tunnel list.
 * Runtime deps: only `kmod-tun` and `ip-full` — no `libstdcpp`/boost/protobuf.
+
+## Split tunnel
+
+`enable_split_tunnel`, `split_tunnel_mode` and the rest of the UCI schema match
+upstream. The domain list, however, is stored in a **plain text file**:
+
+```
+/etc/fptn/split-tunnel-domains.txt   # one domain per line; empty = built-in list
+```
+
+The init script passes `--split-tunnel-domains-file` only when that file is
+non-empty; otherwise the client falls back to the built-in list embedded in the
+binary (`data/split-tunnel-domains.txt`, upstream `deploy/domain_blacklist/russia.txt`).
+LuCI manages the file with Import / Export / Delete buttons, and
+`fptn-client-rs --print-split-tunnel-domains` dumps the built-in list without
+root.
 
 ## Staging the binaries
 

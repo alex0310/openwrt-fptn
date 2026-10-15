@@ -67,6 +67,9 @@ define Package/fptn-client-rs/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/fptn.init $(1)/etc/init.d/fptn
 
+	# LuCI stores the custom split-tunnel domain list here.
+	$(INSTALL_DIR) $(1)/etc/fptn
+
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/99-fptn $(1)/etc/uci-defaults/99-fptn
 
