@@ -1,0 +1,4 @@
+# Cross-built static-musl artifacts staged by scripts/stage-openwrt.sh.
+# They are build outputs, not sources — do not commit them.
+/files/fptn-client-rs
+/files/fptn-tcp-probe
