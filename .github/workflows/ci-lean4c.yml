@@ -145,23 +145,6 @@ jobs:
         run: |
           make package/openwrt-fptn/fptn-client-rs/compile -j"$(nproc)" V=sc
 
-      - name: Build luci-app-fptn package
-        working-directory: openwrt
-        run: |
-          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
-
-      - name: Collect fptn .apk packages
-        working-directory: openwrt
-        run: |
-          mkdir -p ../dist-apk
-          find bin/packages/mipsel_24kc -name 'fptn-client-rs*.apk' -o -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \; 2>/dev/null || true
-          if [ -z "$(ls -A ../dist-apk 2>/dev/null)" ]; then
-            find bin/packages -path '*mipsel_24kc*' -name 'fptn-client-rs*.apk' -o -path '*mipsel_24kc*' -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \;
-          fi
-          echo '=== collected ==='
-          ls -la ../dist-apk/
-
-
       - name: Build image (lean)
         working-directory: openwrt
         run: |
@@ -195,6 +178,36 @@ jobs:
           echo "=== root squashfs size ==="
           ls -la build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
           du -h build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
+
+      - name: Build luci-app-fptn package (after image, so the lean size stays unbiased)
+        working-directory: openwrt
+        run: |
+          set -eu
+          # luci-app-fptn must be enabled in .config, otherwise `make .../compile`
+          # is a silent no-op (no apk is produced). Enabling it *after* the image
+          # build keeps the measured lean image unchanged.
+          grep -q '^CONFIG_PACKAGE_luci-app-fptn=y$' .config || echo 'CONFIG_PACKAGE_luci-app-fptn=y' >> .config
+          make defconfig
+          grep -q '^CONFIG_PACKAGE_luci-app-fptn=y$' .config || {
+            echo "::error::luci-app-fptn was not enabled after defconfig"
+            exit 1
+          }
+          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
+
+      - name: Collect fptn .apk packages
+        working-directory: openwrt
+        run: |
+          set -eu
+          mkdir -p ../dist-apk
+          # Note: -o binds weaker than -exec, so parentheses are mandatory.
+          find bin/packages/mipsel_24kc \( -name 'fptn-client-rs*.apk' -o -name 'luci-app-fptn*.apk' \) -exec cp {} ../dist-apk/ \;
+          echo '=== collected ==='
+          ls -la ../dist-apk/
+          test -n "$(ls -A ../dist-apk)"
+          echo '=== found fptn-client-rs ==='
+          ls -la ../dist-apk/fptn-client-rs*.apk
+          echo '=== found luci-app-fptn ==='
+          ls -la ../dist-apk/luci-app-fptn*.apk
 
       - name: Upload fptn apk packages (mipsel_24kc)
         uses: actions/upload-artifact@v4
