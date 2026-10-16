@@ -89,6 +89,20 @@ jobs:
           cp ../ci-lean4c.config .config
           make defconfig
           sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\(.*\)"/target arch: \1/p' .config
+          # Fail fast: a bad .config used to reach the very last step and then be
+          # skipped by `|| exit 0`, i.e. a green run with no image at all. Checking
+          # here costs seconds instead of a ~50 min build.
+          if ! grep -qF 'CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y' .config; then
+            echo "::error::xiaomi_mi-router-4c is not selected after 'make defconfig'; no image would be built. Device/profile selection is now:"
+            grep -E '^CONFIG_TARGET(_DEVICE)?_[A-Za-z0-9_-]+=y|^CONFIG_TARGET_PROFILE=' .config \
+              || echo "  (nothing selected at all)"
+            exit 1
+          fi
+          grep -qF 'CONFIG_PACKAGE_fptn-client-rs=y' .config || {
+            echo "::error::CONFIG_PACKAGE_fptn-client-rs is not set after 'make defconfig'; the image would not contain the client."
+            exit 1
+          }
+          echo "device: $(grep -m1 '^CONFIG_TARGET_PROFILE=' .config)"
 
       - name: Cache downloads
         uses: actions/cache@v4
@@ -119,7 +133,13 @@ jobs:
         working-directory: openwrt
         run: |
           set -eu
-          grep -qF 'CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y' .config || exit 0
+          # Defensive re-check (Configure already fails fast on this). Never skip
+          # silently: `|| exit 0` here is exactly what turned a broken config into
+          # a green run with no image at all.
+          grep -qF 'CONFIG_TARGET_ramips_mt76x8_DEVICE_xiaomi_mi-router-4c=y' .config || {
+            echo "::error::xiaomi_mi-router-4c is no longer selected in .config; refusing to skip the build silently."
+            exit 1
+          }
           # срезаем boost/googletest и сервисы для замера минимального образа
           for p in boost googletest dnsmasq dropbear firewall4 hostapd-common wpad-basic-mbedtls wireless-regdb; do
             sed -i "s/^CONFIG_PACKAGE_${p}=.*/CONFIG_PACKAGE_${p}=n/" .config
@@ -132,6 +152,13 @@ jobs:
             -name '*xiaomi_mi-router-4c*' -exec cp {} ../dist-img/ \;
           echo "=== built images ==="
           ls -la ../dist-img
+          if [ -z "$(ls -A ../dist-img 2>/dev/null)" ]; then
+            echo "::error::no xiaomi_mi-router-4c image was produced. bin/targets/ramips/mt76x8 contains:"
+            ls -la bin/targets/ramips/mt76x8 || echo "  (missing — build produced nothing for this target)"
+            exit 1
+          fi
+          echo "=== bin/targets/ramips/mt76x8 ==="
+          ls -la bin/targets/ramips/mt76x8
           echo "=== root squashfs size ==="
           ls -la build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
           du -h build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
@@ -141,4 +168,4 @@ jobs:
         with:
           name: image-lean4c
           path: dist-img/*
-          if-no-files-found: ignore
+          if-no-files-found: error
