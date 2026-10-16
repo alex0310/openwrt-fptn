@@ -154,7 +154,10 @@ jobs:
         working-directory: openwrt
         run: |
           mkdir -p ../dist-apk
-          find bin/packages/mipsel_24kc -name 'fptn-client-rs*.apk' -o -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \;
+          find bin/packages/mipsel_24kc -name 'fptn-client-rs*.apk' -o -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \; 2>/dev/null || true
+          if [ -z "$(ls -A ../dist-apk 2>/dev/null)" ]; then
+            find bin/packages -path '*mipsel_24kc*' -name 'fptn-client-rs*.apk' -o -path '*mipsel_24kc*' -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \;
+          fi
           echo '=== collected ==='
           ls -la ../dist-apk/
 
