@@ -18,10 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Checkout OpenWrt
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: openwrt/openwrt
           ref: ${{ env.OPENWRT_COMMIT }}
@@ -46,7 +46,7 @@ jobs:
           }
 
       - name: Checkout fptn-client-rs
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: ${{ env.FPTN_RS_REPO }}
           ref: ${{ env.FPTN_RS_REF }}
