@@ -145,6 +145,20 @@ jobs:
         run: |
           make package/openwrt-fptn/fptn-client-rs/compile -j"$(nproc)" V=sc
 
+      - name: Build luci-app-fptn package
+        working-directory: openwrt
+        run: |
+          make package/openwrt-fptn/luci-app-fptn/compile -j"$(nproc)" V=sc
+
+      - name: Collect fptn .apk packages
+        working-directory: openwrt
+        run: |
+          mkdir -p ../dist-apk
+          find bin/packages/mipsel_24kc -name 'fptn-client-rs*.apk' -o -name 'luci-app-fptn*.apk' -exec cp {} ../dist-apk/ \;
+          echo '=== collected ==='
+          ls -la ../dist-apk/
+
+
       - name: Build image (lean)
         working-directory: openwrt
         run: |
@@ -178,6 +192,13 @@ jobs:
           echo "=== root squashfs size ==="
           ls -la build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
           du -h build_dir/target-mipsel_24kc_musl/linux-ramips_mt76x8/root.squashfs || true
+
+      - name: Upload fptn apk packages (mipsel_24kc)
+        uses: actions/upload-artifact@v4
+        with:
+          name: fptn-apk-mipsel_24kc
+          path: dist-apk/*
+          if-no-files-found: error
 
       - name: Upload experiment image
         uses: actions/upload-artifact@v4
