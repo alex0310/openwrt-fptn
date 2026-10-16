@@ -112,6 +112,22 @@ jobs:
           restore-keys: |
             dl-
 
+      - name: Cache toolchain and staging
+        uses: actions/cache@v4
+        with:
+          path: |
+            openwrt/staging_dir
+            openwrt/toolchain
+            openwrt/build_dir/host
+            openwrt/build_dir/hostpkg
+            openwrt/scripts/config
+            openwrt/.config
+            openwrt/tmp
+          key: toollean-${{ env.OPENWRT_COMMIT }}-${{ hashFiles('ci-lean4c.config', 'package/**/Makefile', 'package/openwrt-fptn/**') }}
+          restore-keys: |
+            toollean-${{ env.OPENWRT_COMMIT }}-
+            toollean-
+
       - name: Build toolchain
         working-directory: openwrt
         run: |
