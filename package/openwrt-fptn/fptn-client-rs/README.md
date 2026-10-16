@@ -40,6 +40,16 @@ LuCI manages the file with Import / Export / Delete buttons, and
 `fptn-client-rs --print-split-tunnel-domains` dumps the built-in list without
 root.
 
+## Connection pool
+
+`enable_pool` (default `0`) turns on the client's connection-pool strategies —
+`dual-rolling-tunnel`, `triple-rolling-tunnel` and `browser-mimicry`. It is
+deliberately **off** on the router: a pool keeps several tunnels open at once,
+which costs RAM, so it must be enabled explicitly. With the pool disabled the
+client logs a warning and falls back to a single `rolling-tunnel`. The
+`connection_strategy` option selects the strategy used when the pool is enabled.
+See the main project README for the strategy semantics.
+
 ## Staging the binaries
 
 From the `fptn-client-rs` repo:
