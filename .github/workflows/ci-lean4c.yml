@@ -10,7 +10,10 @@ env:
   OPENWRT_COMMIT: 3cdb8b59d9aa7569b3b9ae6df5f1b05ce93b50d2
   # Rust client source used to cross-build the prebuilt mipsel binary.
   FPTN_RS_REPO: alex0310/fptn-client-rs
-  FPTN_RS_REF: main
+  # Pinned to the release tag, not `main`: the package Makefile advertises a
+  # fixed PKG_VERSION, so the sources it is built from must not move underneath
+  # it. The guard below fails the run if the two ever disagree.
+  FPTN_RS_REF: v0.1.1
 
 jobs:
   build:
@@ -55,6 +58,18 @@ jobs:
           # repository and cannot read it. FPTN_RS_TOKEN is a fine-grained PAT
           # with Contents: Read on alex0310/fptn-client-rs only.
           token: ${{ secrets.FPTN_RS_TOKEN }}
+
+      - name: Verify Rust crate version matches the package
+        run: |
+          set -eu
+          crate=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' fptn-rs/Cargo.toml | head -1)
+          pkg=$(sed -n 's/^PKG_VERSION:=\(.*\)/\1/p' package/openwrt-fptn/fptn-client-rs/Makefile | head -1)
+          echo "fptn-client-rs crate version: $crate"
+          echo "fptn-client-rs package version: $pkg"
+          if [ "$crate" != "$pkg" ]; then
+            echo "::error::version mismatch: $FPTN_RS_REPO@$FPTN_RS_REF has crate version '$crate' but the package declares PKG_VERSION '$pkg'. The staged binary would not match the published package version."
+            exit 1
+          fi
 
       - name: Overlay packages into OpenWrt tree
         run: cp -a package/. openwrt/package/
