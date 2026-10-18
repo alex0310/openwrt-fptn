@@ -13,7 +13,7 @@ env:
   # Pinned to the release tag, not `main`: the package Makefile advertises a
   # fixed PKG_VERSION, so the sources it is built from must not move underneath
   # it. The guard below fails the run if the two ever disagree.
-  FPTN_RS_REF: v0.1.2
+  FPTN_RS_REF: v0.1.3
 
 jobs:
   build:

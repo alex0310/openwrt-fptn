@@ -18,6 +18,13 @@ if ! uci -q get firewall.fptn >/dev/null; then
 	/etc/init.d/firewall reload >/dev/null 2>&1
 fi
 
+# v0.1.3 is a diagnostic release: default to debug logging so the on-router log
+# shows the keep-alive pings/pongs. Drop this once the fix is confirmed.
+if ! uci -q get fptn.config.log_level >/dev/null; then
+	uci set fptn.config.log_level='debug'
+	uci commit fptn
+fi
+
 rm -f /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null
 
 exit 0

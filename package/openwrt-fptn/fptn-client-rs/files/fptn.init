@@ -174,6 +174,8 @@ start_service() {
 	# Connection-pool strategies (dual/triple rolling tunnels, browser-mimicry)
 	# are inactive on the router by default; enable them explicitly.
 	append_bool enable_pool enable-pool 0
+	append_option log_level log-level
+	append_option keepalive_idle keepalive-idle
 
 	append_bool enable_split_tunnel enable-split-tunnel 1
 	append_option split_tunnel_mode split-tunnel-mode
