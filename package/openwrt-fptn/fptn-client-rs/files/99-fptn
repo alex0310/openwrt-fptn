@@ -18,9 +18,9 @@ if ! uci -q get firewall.fptn >/dev/null; then
 	/etc/init.d/firewall reload >/dev/null 2>&1
 fi
 
-# v0.1.3/v0.1.4 are diagnostic releases: default to debug logging so the
+# v0.1.3–v0.1.5 are diagnostic releases: default to debug logging so the
 # on-router log shows keep-alive pings/pongs and any TLS read errors. Drop this
-# once both are confirmed on hardware.
+# once the v0.1.5 read-path fix is confirmed on hardware (v0.1.6 back to info).
 if ! uci -q get fptn.config.log_level >/dev/null; then
 	uci set fptn.config.log_level='debug'
 	uci commit fptn
