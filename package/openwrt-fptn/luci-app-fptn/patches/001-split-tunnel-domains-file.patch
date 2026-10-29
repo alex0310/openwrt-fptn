@@ -1,6 +1,6 @@
 --- a/deploy/openwrt/data/luci/www/luci-static/resources/view/fptn/main.js
 +++ b/deploy/openwrt/data/luci/www/luci-static/resources/view/fptn/main.js
-@@ -14,6 +14,12 @@
+@@ -14,6 +14,18 @@
  
  var brotliDecode;
  
@@ -10,10 +10,16 @@
 +var splitDomainsFile = '/etc/fptn/split-tunnel-domains.txt';
 +var splitDomainsContent = null;
 +
++// Public mirror of the client's data/split-tunnel-domains.txt. The canonical
++// repository (alex0310/fptn-client-rs) is private, so the browser cannot fetch
++// it anonymously; openwrt-fptn carries a copy. Keep the two in sync when the
++// built-in list changes.
++var repoDomainsUrl = 'https://raw.githubusercontent.com/alex0310/openwrt-fptn/main/data/split-tunnel-domains.txt';
++
  var spoofingMethods = [
  	[ 'sni-spoofing-chrome-149', 'Chrome 149' ],
  	[ 'sni-spoofing-chrome-148', 'Chrome 148' ],
-@@ -344,6 +350,142 @@
+@@ -344,6 +356,173 @@
  	return o;
  }
  
@@ -28,7 +34,7 @@
 +}
 +
 +// File-backed editor for the split-tunnel domain list, with Import / Export /
-+// Delete buttons. The list is stored in splitDomainsFile; an empty value
++// Download from repo / Delete buttons. The list is stored in splitDomainsFile; an empty value
 +// removes the file so the client reverts to its built-in list.
 +function splitDomainsOption(section, tab, title, description, placeholder) {
 +	var o = section.taboption(tab, form.TextValue, '_split_tunnel_domains',
@@ -131,6 +137,37 @@
 +			}
 +		}, _('Export file'));
 +
++		var repoButton = E('button', {
++			'class': 'cbi-button cbi-button-action',
++			'type': 'button',
++			'click': function () {
++				repoButton.disabled = true;
++				fetch(repoDomainsUrl, { cache: 'no-store' })
++					.then(function (res) {
++						if (!res.ok)
++							throw new Error('HTTP ' + res.status);
++						return res.text();
++					})
++					.then(function (text) {
++						var list = normalizeDomains(text);
++						setArea(list);
++						ui.addNotification(null, E('p',
++							_('Downloaded %s domains from the repository — press "Save & Apply" to apply.')
++								.format(list.length ? list.split('\n').length : 0)),
++							'info');
++					})
++					.catch(function (err) {
++						ui.addNotification(null, E('p',
++							_('Unable to download the domain list: %s')
++								.format(err && err.message ? err.message : err)),
++							'error');
++					})
++					.then(function () {
++						repoButton.disabled = false;
++					});
++			}
++		}, _('Download from repo'));
++
 +		var deleteButton = E('button', {
 +			'class': 'cbi-button cbi-button-negative',
 +			'type': 'button',
@@ -146,7 +183,7 @@
 +			node,
 +			E('div', {
 +				'style': 'margin-top:.4em;display:flex;gap:.5em;flex-wrap:wrap;align-items:center'
-+			}, [ importButton, exportButton, deleteButton, fileInput ])
++			}, [ importButton, exportButton, repoButton, deleteButton, fileInput ])
 +		]);
 +	};
 +
@@ -156,7 +193,7 @@
  function compareVersions(left, right) {
  	var a = String(left).replace(/^v/, '').split('.');
  	var b = String(right).replace(/^v/, '').split('.');
-@@ -699,7 +841,8 @@
+@@ -699,7 +878,8 @@
  
  			return Promise.all([
  				serviceInfo(), hasTunnel(), readLog(), tunnelStats(tun),
@@ -166,7 +203,7 @@
  			]);
  		});
  	},
-@@ -711,6 +854,7 @@
+@@ -711,6 +891,7 @@
  		var token = uci.get('fptn', 'config', 'access_token');
  
  		brotliDecode = data[4].BrotliDecode;
@@ -174,7 +211,7 @@
  
  		poll.add(refresh, 5);
  
-@@ -880,17 +1024,15 @@
+@@ -880,17 +1061,15 @@
  		o.default = 'exclude';
  		o.depends('enable_split_tunnel', '1');
  
