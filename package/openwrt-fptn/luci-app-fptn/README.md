@@ -28,6 +28,11 @@ The patch changes:
   `fptn-client-rs --print-split-tunnel-domains`. *Download from repo* fetches a
   fresh list with the browser's `fetch()` and fills the textarea; it does not
   save by itself.
+* **`main.js`** — the **Log** section gains a `Debug` checkbox (off by default;
+  it hides `DEBUG`/`TRACE` lines) and a line-limit selector
+  (500/1000/2000/7000, default 500). Both take effect immediately in the 5 s
+  refresh loop and are remembered in the browser's `localStorage`; they do not
+  change UCI and do not restart the client.
 * **`acl.d/luci-app-fptn.json`** — grants the rpcd permissions the editor
   needs: `read`/`write` on `/etc/fptn/split-tunnel-domains.txt` and `exec` on
   `/usr/bin/fptn-client-rs`.

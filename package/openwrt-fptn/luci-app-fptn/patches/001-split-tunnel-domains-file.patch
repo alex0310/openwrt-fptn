@@ -19,7 +19,80 @@
  var spoofingMethods = [
  	[ 'sni-spoofing-chrome-149', 'Chrome 149' ],
  	[ 'sni-spoofing-chrome-148', 'Chrome 148' ],
-@@ -344,6 +356,173 @@
+@@ -304,18 +316,67 @@
+ 	});
+ }
+ 
+-function readLog() {
+-	return fs.exec('/sbin/logread', [ '-l', '500', '-e', 'fptn' ]).then(function (res) {
++var logLimits = [ 500, 1000, 2000, 7000 ];
++var logLimit = 500;
++var logDebug = false;
++
++function readLog(limit) {
++	return fs.exec('/sbin/logread', [ '-l', String(limit || 500), '-e', 'fptn' ]).then(function (res) {
+ 		return (res.stdout || '').trim();
+ 	}).catch(function () {
+ 		return '';
+ 	});
+ }
+ 
+-function logTail(log) {
++// Keep the last `limit` lines. Debug/trace lines are hidden unless the viewer's
++// Debug checkbox is on; the client still logs them at its configured level.
++function logTail(log, options) {
++	var opts = options || {};
++	var limit = opts.limit || 500;
++
+ 	return log.split('\n').filter(function (line) {
+-		return line.indexOf("Can't to read from device") < 0;
+-	}).slice(-400).join('\n');
++		if (line.indexOf("Can't to read from device") >= 0)
++			return false;
++		if (!opts.debug && /\b(DEBUG|TRACE)\b/.test(line))
++			return false;
++		return true;
++	}).slice(-limit).join('\n');
++}
++
++function logToolbar() {
++	var options = logLimits.map(function (n) {
++		return '<option value="' + n + '"' + (n === logLimit ? ' selected' : '') + '>' + n + '</option>';
++	}).join('');
++
++	return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:1.25em;margin-bottom:.4em">' +
++		'<label style="display:flex;align-items:center;gap:.35em;font-weight:normal;margin:0">' +
++			'<input type="checkbox" id="fptn_log_debug"' + (logDebug ? ' checked' : '') + '> ' +
++			_('Debug') +
++		'</label>' +
++		'<label style="display:flex;align-items:center;gap:.35em;font-weight:normal;margin:0">' +
++			_('Lines') + ': ' +
++			'<select id="fptn_log_limit" class="cbi-input-select" style="width:auto;margin:0">' +
++				options +
++			'</select>' +
++		'</label>' +
++	'</div>';
++}
++
++function storeLogPrefs() {
++	try {
++		window.localStorage.setItem('fptn.log.debug', logDebug ? '1' : '0');
++		window.localStorage.setItem('fptn.log.lines', String(logLimit));
++	} catch (e) {}
++}
++
++function loadLogPrefs() {
++	try {
++		logDebug = window.localStorage.getItem('fptn.log.debug') === '1';
++
++		var n = parseInt(window.localStorage.getItem('fptn.log.lines'), 10);
++		if (logLimits.indexOf(n) >= 0)
++			logLimit = n;
++	} catch (e) {}
+ }
+ 
+ function listOption(section, tab, name, key, title, description, placeholder) {
+@@ -344,6 +405,173 @@
  	return o;
  }
  
@@ -193,17 +266,53 @@
  function compareVersions(left, right) {
  	var a = String(left).replace(/^v/, '').split('.');
  	var b = String(right).replace(/^v/, '').split('.');
-@@ -699,7 +878,8 @@
+@@ -392,7 +620,7 @@
+ 		fs.exec('/sbin/ip', [ '-4', 'route', 'show' ]).catch(function () {
+ 			return {};
+ 		}),
+-		readLog(),
++		readLog(logLimit),
+ 		uci.load('firewall').catch(function () {}),
+ 		fs.exec('/bin/ping', [ '-c', '1', '-W', '3', '8.8.8.8' ]).catch(function () {
+ 			return { code: 1 };
+@@ -625,7 +853,7 @@
+ 	var tun = uci.get('fptn', 'config', 'tun_interface_name') || 'tun0';
+ 
+ 	return Promise.all([
+-		serviceInfo(), hasTunnel(), readLog(), tunnelStats(tun)
++		serviceInfo(), hasTunnel(), readLog(logLimit), tunnelStats(tun)
+ 	]);
+ }
+ 
+@@ -680,7 +908,8 @@
+ 
+ 		var log = document.getElementById('fptn_log');
+ 		if (log)
+-			log.textContent = logTail(data[2] || '') || _('No messages yet');
++			log.textContent = logTail(data[2] || '',
++				{ debug: logDebug, limit: logLimit }) || _('No messages yet');
+ 
+ 		return data;
+ 	});
+@@ -694,12 +923,15 @@
+ 	},
+ 
+ 	load: function () {
++		loadLogPrefs();
++
+ 		return uci.load('fptn').then(function () {
+ 			var tun = uci.get('fptn', 'config', 'tun_interface_name') || 'tun0';
  
  			return Promise.all([
- 				serviceInfo(), hasTunnel(), readLog(), tunnelStats(tun),
+-				serviceInfo(), hasTunnel(), readLog(), tunnelStats(tun),
 -				import(L.resource('fptn/brotli.js'))
++				serviceInfo(), hasTunnel(), readLog(logLimit), tunnelStats(tun),
 +				import(L.resource('fptn/brotli.js')),
 +				L.resolveDefault(fs.read(splitDomainsFile), '')
  			]);
  		});
  	},
-@@ -711,6 +891,7 @@
+@@ -711,6 +943,7 @@
  		var token = uci.get('fptn', 'config', 'access_token');
  
  		brotliDecode = data[4].BrotliDecode;
@@ -211,13 +320,19 @@
  
  		poll.add(refresh, 5);
  
-@@ -880,17 +1061,15 @@
+@@ -880,17 +1113,15 @@
  		o.default = 'exclude';
  		o.depends('enable_split_tunnel', '1');
  
 -		o = listOption(s, 'routing', 'split_tunnel_domains_exclude',
 -			'split_tunnel_domains', _('Domains to bypass VPN'),
 -			_('List domains that should bypass VPN tunnel. These domains will go directly, all other traffic uses VPN'),
+-			'example.com');
+-		o.depends({ enable_split_tunnel: '1', split_tunnel_mode: 'exclude' });
+-
+-		o = listOption(s, 'routing', 'split_tunnel_domains_include',
+-			'split_tunnel_domains', _('Domains to route through VPN'),
+-			_('List domains that should use VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN'),
 +		o = splitDomainsOption(s, 'routing',
 +			_('Split tunnel domains'),
 +			_('One domain per line. In "Exclude" mode these domains bypass the ' +
@@ -226,17 +341,50 @@
 +			'www.example.com. Leave the field empty to use the built-in list ' +
 +			'of about 2000 domains.'),
  			'example.com');
--		o.depends({ enable_split_tunnel: '1', split_tunnel_mode: 'exclude' });
--
--		o = listOption(s, 'routing', 'split_tunnel_domains_include',
--			'split_tunnel_domains', _('Domains to route through VPN'),
--			_('List domains that should use VPN tunnel. Only these domains will go through VPN, all other traffic bypasses VPN'),
--			'example.com');
 -		o.depends({ enable_split_tunnel: '1', split_tunnel_mode: 'include' });
 +		o.depends('enable_split_tunnel', '1');
  
  		listOption(s, 'routing', 'blacklist_domains', 'blacklist_domains',
  			_('Blacklist domains'),
+@@ -913,8 +1144,11 @@
+ 		o = s.option(form.DummyValue, '_log');
+ 		o.rawhtml = true;
+ 		o.cfgvalue = function () {
+-			var text = logTail(data[2] || '') || _('No messages yet');
+-			return '<pre id="fptn_log" style="max-height:20em;overflow:auto">' +
++			var text = logTail(data[2] || '',
++				{ debug: logDebug, limit: logLimit }) || _('No messages yet');
++
++			return logToolbar() +
++				'<pre id="fptn_log" style="max-height:20em;overflow:auto">' +
+ 				text.replace(/[&<>]/g, function (c) {
+ 					return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+ 				}) + '</pre>';
+@@ -923,6 +1157,24 @@
+ 		return m.render().then(function (node) {
+ 			var sections = node.querySelectorAll('.cbi-section');
+ 
++			var logDebugBox = node.querySelector('#fptn_log_debug');
++			if (logDebugBox)
++				logDebugBox.addEventListener('change', function () {
++					logDebug = !!logDebugBox.checked;
++					storeLogPrefs();
++					refresh();
++				});
++
++			var logLimitBox = node.querySelector('#fptn_log_limit');
++			if (logLimitBox)
++				logLimitBox.addEventListener('change', function () {
++					var n = parseInt(logLimitBox.value, 10);
++					if (logLimits.indexOf(n) >= 0)
++						logLimit = n;
++					storeLogPrefs();
++					refresh();
++				});
++
+ 			var toggle = function () {
+ 				var on = enabledOption.formvalue('config') === '1';
+ 
 --- a/deploy/openwrt/data/luci/usr/share/rpcd/acl.d/luci-app-fptn.json
 +++ b/deploy/openwrt/data/luci/usr/share/rpcd/acl.d/luci-app-fptn.json
 @@ -11,13 +11,16 @@
