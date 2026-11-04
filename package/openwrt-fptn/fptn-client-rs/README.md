@@ -40,14 +40,23 @@ LuCI manages the file with Import / Export / Delete buttons, and
 `fptn-client-rs --print-split-tunnel-domains` dumps the built-in list without
 root.
 
-## Connection pool
+## Connection strategy
 
-`enable_pool` (default `0`) turns on the client's connection-pool strategies —
-`dual-rolling-tunnel`, `triple-rolling-tunnel` and `browser-mimicry`. It is
-deliberately **off** on the router: a pool keeps several tunnels open at once,
-which costs RAM, so it must be enabled explicitly. With the pool disabled the
-client logs a warning and falls back to a single `rolling-tunnel`. The
-`connection_strategy` option selects the strategy used when the pool is enabled.
+`connection_strategy` selects the tunnel strategy, matching upstream:
+
+| Value | Connections | Notes |
+|-------|-------------|-------|
+| `rolling-tunnel` | 1 | Lean relay; rotates at 540 s. |
+| `dual-rolling-tunnel` | 2 | Pool with a 600 s base, replacement 60 s before expiry. |
+| `triple-rolling-tunnel` | 3 | Same, three staggered connections. |
+| `browser-mimicry` | 4–8 | Short-lived churning connections. |
+
+`dual-rolling-tunnel` (the default), `triple-rolling-tunnel` and
+`browser-mimicry` always use the connection pool; no extra flag is needed. A
+pool keeps several tunnels open at once and costs more RAM than the single
+relay. `enable_pool` (default `0`) additionally routes the single
+`rolling-tunnel` through the pool so the replacement is ready before the old
+connection closes; leave it off to keep the lean single relay.
 See the main project README for the strategy semantics.
 
 ## Staging the binaries
