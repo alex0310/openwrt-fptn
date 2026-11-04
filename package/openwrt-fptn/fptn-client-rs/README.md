@@ -49,7 +49,7 @@ root.
 | `rolling-tunnel` | 1 | Lean relay; rotates at 540 s. |
 | `dual-rolling-tunnel` | 2 | Pool with a 600 s base, replacement 60 s before expiry. |
 | `triple-rolling-tunnel` | 3 | Same, three staggered connections. |
-| `browser-mimicry` | 4–8 | Short-lived churning connections. |
+| `browser-mimicry` | 4–8 | Short-lived churning connections (CLI/UCI only). |
 
 `dual-rolling-tunnel` (the default), `triple-rolling-tunnel` and
 `browser-mimicry` always use the connection pool; no extra flag is needed. A
