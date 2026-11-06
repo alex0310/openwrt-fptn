@@ -98,6 +98,17 @@ detect_out_interface() {
 }
 
 VPN_DNS=172.20.0.1
+DNS_WAITER_PID=/var/run/fptn.dns-waiter.pid
+
+stop_dns_waiter() {
+	local pid
+	[ -f "$DNS_WAITER_PID" ] || return 0
+	pid=$(cat "$DNS_WAITER_PID" 2>/dev/null)
+	if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+		kill "$pid" 2>/dev/null
+	fi
+	rm -f "$DNS_WAITER_PID"
+}
 
 apply_dns() {
 	local use_fptn_dns
@@ -115,7 +126,37 @@ apply_dns() {
 	/etc/init.d/dnsmasq reload
 }
 
+apply_dns_when_ready() {
+	local use_fptn_dns
+	config_get_bool use_fptn_dns config use_fptn_dns 1
+	[ "$use_fptn_dns" -eq 1 ] || return 0
+
+	# Do not point dnsmasq at the VPN DNS before the tunnel exists: the client
+	# needs the WAN resolver for its startup NTP sync and for bootstrap hostname
+	# resolution. If the tunnel never comes up, leaving DNS unchanged is much
+	# better than breaking name resolution (and the NTP retry loop) forever.
+	stop_dns_waiter
+	(
+		local tun_if waited=0
+		config_load fptn
+		config_get tun_if config tun_interface_name
+		[ -z "$tun_if" ] && tun_if=tun0
+		while [ "$waited" -lt 120 ]; do
+			if ip route get "$VPN_DNS" 2>/dev/null | grep -q " dev $tun_if "; then
+				logger -t fptn "tunnel is up, switching DNS to $VPN_DNS"
+				apply_dns
+				return 0
+			fi
+			sleep 1
+			waited=$((waited + 1))
+		done
+		logger -p daemon.warn -t fptn "tunnel is not up, leaving DNS unchanged"
+	) &
+	echo $! > "$DNS_WAITER_PID"
+}
+
 restore_dns() {
+	stop_dns_waiter
 	uci -q revert dhcp
 	/etc/init.d/dnsmasq reload
 }
@@ -189,7 +230,7 @@ start_service() {
 	procd_set_param stderr 1
 	procd_close_instance
 
-	apply_dns
+	apply_dns_when_ready
 }
 
 stop_service() {
